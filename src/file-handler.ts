@@ -57,6 +57,13 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
             'model/gltf-binary': ['.glb']
         }
     },
+    'lcc': {
+        description: 'LCC Scene',
+        accept: {
+            'application/json': ['.lcc'],
+            'application/octet-stream': ['.bin']
+        }
+    },
     'htmlViewer': {
         description: 'Viewer HTML',
         accept: {
@@ -99,6 +106,12 @@ const isPlySequence = (filenames: string[]) => {
 const isSog = (filenames: string[]) => {
     const count = (extension: string) => filenames.reduce((sum, f) => sum + (f.endsWith(extension) ? 1 : 0), 0);
     return count('meta.json') === 1;
+};
+
+// The LCC file contains meta.lcc, index.bin, data.bin and shcoef.bin (optional)
+const isLcc = (filenames: string[]) => {
+    const count = (extension: string) => filenames.reduce((sum, f) => sum + (f.endsWith(extension) ? 1 : 0), 0);
+    return count('.lcc') === 1;
 };
 
 type ImportFile = {
@@ -206,6 +219,36 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         return model;
     };
 
+    const importLcc = async (files: ImportFile[], animationFrame: boolean) => {
+        try {
+            const meta = files.findIndex(f => f.filename.toLowerCase().endsWith('.lcc'));
+            const mapFile = (name: string) => {
+                const lowerName = name.toLowerCase();
+                const idx = files.findIndex(f => f.filename.toLowerCase() === lowerName);
+                if (idx >= 0) {
+                    return {
+                        filename: files[idx].filename,
+                        contents: files[idx].contents
+                    };
+                }
+                return undefined;
+            };
+
+            const model = await scene.assetLoader.loadModel({
+                filename: files[meta].filename,
+                contents: files[meta].contents,
+                animationFrame,
+                mapFile
+            });
+
+            scene.add(model);
+
+            return model;
+        } catch (error) {
+            await showLoadError(error.message ?? error, 'lcc');
+        }
+    };
+
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
     const importFiles = async (files: ImportFile[], animationFrame = false) => {
 
@@ -220,11 +263,14 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } else if (isSog(filenames)) {
             // import sog files
             result.push(await importSog(files, animationFrame));
+        } else if (isLcc(filenames)) {
+            // import lcc files
+            result.push(await importLcc(files, animationFrame));
         } else {
             // check for unrecognized file types
             for (let i = 0; i < filenames.length; i++) {
                 const filename = filenames[i];
-                if (!filename.endsWith('.ssproj') && !filename.endsWith('.json') && !filename.endsWith('.ply') && !filename.endsWith('.splat') && !filename.endsWith('.sog') && !filename.endsWith('.webp') && !filename.endsWith('.gltf') && !filename.endsWith('.glb')) {
+                if (!filename.endsWith('.ssproj') && !filename.endsWith('.json') && !filename.endsWith('.ply') && !filename.endsWith('.splat') && !filename.endsWith('.sog') && !filename.endsWith('.webp') && !filename.endsWith('.gltf') && !filename.endsWith('.glb') && !filename.endsWith('.lcc') && !filename.endsWith('.bin')) {
                     await showLoadError('Unrecognized file type', filename);
                     return;
                 }
@@ -258,7 +304,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb');
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
         fileSelector.setAttribute('multiple', 'true');
 
 

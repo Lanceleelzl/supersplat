@@ -1,6 +1,7 @@
 import { AppBase, Asset, GSplatData, GSplatResource, ContainerResource, Entity, CULLFACE_NONE, Color } from 'playcanvas';
 
 import { Events } from './events';
+import { CompressInfo, deserializeFromLcc, LCC_LOD_MAX_SPLATS, LccUnitInfo, parseIndexBin, parseMeta } from './lcc';
 import { GltfModel } from './gltf-model';
 import { Splat } from './splat';
 
@@ -10,6 +11,7 @@ interface ModelLoadRequest {
     contents?: File;
     animationFrame?: boolean;                   // animations disable morton re-ordering at load time for faster loading
     mapUrl?: (name: string) => string;          // function to map texture names to URLs
+    mapFile?: (name: string) => {filename: string, contents: File}|undefined; // function to map names to files
 }
 
 // ideally this function would stream data directly into GSplatData buffers.
@@ -216,106 +218,163 @@ class AssetLoader {
         }
     }
 
-    loadGltf(loadRequest: ModelLoadRequest) {
+    // 保留现有的GLB加载方法
+    async loadGltf(loadRequest: ModelLoadRequest): Promise<GltfModel> {
         this.events.fire('startSpinner');
-
-        return new Promise<GltfModel>((resolve, reject) => {
-            const asset = new Asset(loadRequest.filename || loadRequest.url, 'container', {
-                url: loadRequest.url,
-                filename: loadRequest.filename
-            });
-
-            if (loadRequest.contents) {
-                // Create blob URL for the file contents
-                const blob = new Blob([loadRequest.contents], {
-                    type: loadRequest.filename?.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json'
-                });
-                asset.file = {
-                    url: URL.createObjectURL(blob),
-                    filename: loadRequest.filename || 'model.gltf'
-                };
-            }
-
-            asset.on('load', () => {
-                try {
-                    // Create an entity to hold the glTF model
-                    const containerResource = asset.resource as ContainerResource;
-                    const entity = containerResource.instantiateRenderEntity();
-                    entity.name = loadRequest.filename || loadRequest.url || 'glTF Model';
-
-                    // Add to the scene root
-                    this.app.root.addChild(entity);
-
-                    // Add basic lighting if not present
-                    this.ensureBasicLighting();
-
-                    // Configure lighting for the model
-                    this.configureMaterialsForLighting(entity);
-
-                    const gltfModel = new GltfModel(asset, entity);
-                    // 若当前还没有加入 scene.elements，需要显式加入
-                    // 加入 Scene.elements 的职责应在外层统一处理；这里通过事件让主场景监听添加
-                    // 外层（例如 main / editor 初始化）可监听 'model.loaded.gltf' 并调用 scene.add(gltfModel)
-                    // Initialize physics picking collider (non-fatal if unavailable)
-                    try {
-                        (gltfModel as any).setupPhysicsPicking?.();
-                    } catch (e) {
-                        console.warn('Physics picking setup failed (non-fatal):', e);
-                    }
-
-                    // Auto-focus camera on the newly loaded model
-                    const bound = gltfModel.worldBound;
-                    if (bound) {
-                        // Add event listener for when the model is added to scene
-                        this.events.once('scene.elementAdded', (element: any) => {
-                            if (element === gltfModel) {
-                                // Get scene from the element
-                                const scene = element.scene;
-                                if (scene && scene.camera) {
-                                    // 检查是否为巡检模型，如果是则不自动聚焦
-                                    const isInspectionModel = (gltfModel as any).isInspectionModel;
-                                    if (!isInspectionModel) {
-                                        scene.camera.focus({
-                                            focalPoint: bound.center,
-                                            radius: bound.halfExtents.length(),
-                                            speed: 1
-                                        });
-                                    } else {
-                                        console.log('巡检模型不自动聚焦相机，保持当前视角');
-                                    }
-                                }
-                            }
-                        });
-                    }
-
-                    // 通过事件通知外部逻辑将该元素加入 Scene（若外层未自动处理）
-                    try {
-                        this.events.fire('model.loaded.gltf', gltfModel);
-                    } catch { /* ignore */ }
-                    resolve(gltfModel);
-                } catch (error) {
-                    reject(new Error(`Failed to instantiate glTF model: ${error.message}`));
+    
+        try {
+            const getResponse = async (contents: File, filename: string | undefined, url: string | undefined) => {
+                const c = contents && (contents instanceof Response ? contents : new Response(contents));
+                const response = await (c ?? fetch(url || filename));
+    
+                if (!response || !response.ok || !response.body) {
+                    throw new Error('Failed to fetch gltf data');
                 }
+                return response;
+            };
+    
+            const response = await getResponse(loadRequest.contents, loadRequest.filename, loadRequest.url);
+            const arrayBuffer = await response.arrayBuffer();
+    
+            // 创建Asset
+            const asset = new Asset(`gltf-${assetId++}`, 'container', {
+                url: loadRequest.url || loadRequest.filename
             });
-
-            asset.on('error', (err: string) => {
-                reject(new Error(`Failed to load glTF model: ${err}`));
+    
+            // 创建ContainerResource
+            const resource = new ContainerResource();
+            asset.resource = resource;
+    
+            // 加载GLTF数据
+            await new Promise<void>((resolve, reject) => {
+                resource.load(arrayBuffer, (err: string | null) => {
+                    if (err) {
+                        reject(new Error(err));
+                    } else {
+                        resolve();
+                    }
+                });
             });
-
-            this.app.assets.add(asset);
-            this.app.assets.load(asset);
-        }).finally(() => {
-            if (!loadRequest.animationFrame) {
-                this.events.fire('stopSpinner');
+    
+            // 创建实体
+            const entity = resource.instantiateRenderEntity();
+            if (!entity) {
+                throw new Error('Failed to create entity from GLTF');
             }
-        });
+    
+            // 添加到场景
+            this.app.root.addChild(entity);
+    
+            // 设置渲染状态
+            entity.findComponents('render').forEach((render: any) => {
+                render.castShadows = false;
+                render.receiveShadows = false;
+                render.material.cull = CULLFACE_NONE;
+            });
+    
+            // 创建GltfModel实例
+            const model = new GltfModel(asset, entity, loadRequest.filename);
+            
+            // 触发加载完成事件
+            this.events.fire('model.loaded.gltf', model);
+    
+            return model;
+    
+        } catch (error) {
+            console.error('GLTF loading error:', error);
+            throw error;
+        } finally {
+            this.events.fire('stopSpinner');
+        }
     }
-
+    
+    // 添加官方的LCC加载方法
+    async loadLcc(loadRequest: ModelLoadRequest) {
+        this.events.fire('startSpinner');
+    
+        try {
+            const getResponse = async (contents: File, filename: string | undefined, url: string | undefined) => {
+                const c = contents && (contents instanceof Response ? contents : new Response(contents));
+                const response = await (c ?? fetch(url || filename));
+    
+                if (!response || !response.ok || !response.body) {
+                    throw new Error('Failed to fetch splat data');
+                }
+                return response;
+            };
+    
+            // .lcc
+            const response:Response = await getResponse(loadRequest.contents, loadRequest.filename, loadRequest.url);
+            const text:string = await response.text();
+            const meta = JSON.parse(text);
+    
+            const isHasSH: boolean =  meta.fileType === 'Quality' || !!(loadRequest.mapFile('shcoef.bin'));
+            const compressInfo: CompressInfo = parseMeta(meta);
+            const splats: number[] = meta.splats;
+    
+            // select a lod level
+            let targetLod =  splats.findIndex(value => value < LCC_LOD_MAX_SPLATS);
+            if (targetLod < 0) {
+                targetLod = splats.length - 1;
+            }
+            const totalSplats = splats[targetLod];
+    
+            // check files
+            const indexFile = loadRequest.mapFile('index.bin');
+            const dataFile = loadRequest.mapFile('data.bin');
+            const shFile = isHasSH ? loadRequest.mapFile('shcoef.bin') : null;
+            if (!indexFile?.contents) {
+                throw new Error('Failed to fetch index.bin!');
+            }
+            if (!dataFile?.contents) {
+                throw new Error('Failed to fetch data.bin!');
+            }
+            if (isHasSH && !shFile?.contents) {
+                throw new Error('Failed to fetch shcoef.bin!');
+            }
+    
+            // index.bin
+            const indexRes = await getResponse(indexFile.contents, indexFile.filename, undefined);
+            const indexArrayBuffer = await indexRes.arrayBuffer();
+            const unitInfos: LccUnitInfo[] = parseIndexBin(indexArrayBuffer, meta);
+    
+            // data.bin + shcoef.bin -> gsplatData
+            const gsplatData = await deserializeFromLcc({
+                totalSplats,
+                unitInfos,
+                targetLod,
+                isHasSH,
+                dataFileContent: dataFile.contents,
+                shFileContent: shFile?.contents,
+                compressInfo
+            });
+    
+            const resource = new GSplatResource(gsplatData);
+            const asset = new Asset(`lcc-${assetId++}`, 'gsplat', {
+                url: loadRequest.url || loadRequest.filename
+            });
+            asset.resource = resource;
+    
+            const splat = new Splat(asset, loadRequest.filename);
+            this.events.fire('model.loaded', splat);
+    
+            return splat;
+    
+        } catch (error) {
+            console.error('LCC loading error:', error);
+            throw error;
+        } finally {
+            this.events.fire('stopSpinner');
+        }
+    }
+    
     loadModel(loadRequest: ModelLoadRequest) {
         const filename = (loadRequest.filename || loadRequest.url).toLowerCase();
-
+    
         if (filename.endsWith('.splat')) {
             return this.loadSplat(loadRequest);
+        } else if (filename.endsWith('.lcc')) {
+            return this.loadLcc(loadRequest);
         } else if (filename.endsWith('.gltf') || filename.endsWith('.glb')) {
             return this.loadGltf(loadRequest);
         }
