@@ -42,7 +42,7 @@ class PointerController {
         };
 
         // mouse state
-        const buttons = [false, false, false];
+        let pressedButton = -1;  // no button pressed, otherwise 0, 1, or 2
         let x: number, y: number;
 
         // touch state
@@ -51,10 +51,13 @@ class PointerController {
 
         const pointerdown = (event: PointerEvent) => {
             if (event.pointerType === 'mouse') {
-                if (buttons.every(b => !b)) {
-                    target.setPointerCapture(event.pointerId);
+                // If a button is already pressed, ignore this press
+                if (pressedButton !== -1) {
+                    return;
                 }
-                buttons[event.button] = true;
+                
+                target.setPointerCapture(event.pointerId);
+                pressedButton = event.button;
                 x = event.offsetX;
                 y = event.offsetY;
             } else if (event.pointerType === 'touch') {
@@ -77,8 +80,9 @@ class PointerController {
 
         const pointerup = (event: PointerEvent) => {
             if (event.pointerType === 'mouse') {
-                buttons[event.button] = false;
-                if (buttons.every(b => !b)) {
+                // Only handle the release of the currently pressed button
+                if (event.button === pressedButton) {
+                    pressedButton = -1;
                     target.releasePointerCapture(event.pointerId);
                 }
             } else {
@@ -97,16 +101,16 @@ class PointerController {
                 y = event.offsetY;
 
                 // right button can be used to orbit with ctrl key and to zoom with alt | meta key
-                const mod = buttons[2] ?
+                const mod = pressedButton === 2 ?
                     (event.shiftKey || event.ctrlKey ? 'orbit' :
                         (event.altKey || event.metaKey ? 'zoom' : null)) :
                     null;
 
-                if (mod === 'orbit' || (mod === null && buttons[0])) {
+                if (mod === 'orbit' || (mod === null && pressedButton === 0)) {
                     orbit(dx, dy);
-                } else if (mod === 'zoom' || (mod === null && buttons[1])) {
+                } else if (mod === 'zoom' || (mod === null && pressedButton === 1)) {
                     zoom(dy * -0.02);
-                } else if (mod === 'pan' || (mod === null && buttons[2])) {
+                } else if (mod === 'pan' || (mod === null && pressedButton === 2)) {
                     pan(x, y, dx, dy);
                 }
             } else {
@@ -179,7 +183,7 @@ class PointerController {
         };
 
         const mousemove = (event: globalThis.MouseEvent) => {
-            if (buttons[0] || buttons[1] || buttons[2]) { // 如果有按钮被按下
+            if (pressedButton !== -1) { // 如果有按钮被按下
                 const dx = Math.abs(event.offsetX - mouseDownPos.x);
                 const dy = Math.abs(event.offsetY - mouseDownPos.y);
                 if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
