@@ -232,53 +232,65 @@ class AssetLoader {
                 }
                 return response;
             };
-    
+
             const response = await getResponse(loadRequest.contents, loadRequest.filename, loadRequest.url);
             const arrayBuffer = await response.arrayBuffer();
     
-            // 创建Asset
+            // 创建Asset并使用PlayCanvas的资产加载系统
             const asset = new Asset(`gltf-${assetId++}`, 'container', {
-                url: loadRequest.url || loadRequest.filename
+                url: loadRequest.url
             });
+            
+            this.app.assets.add(asset);
+            
+            // 使用PlayCanvas的资产加载系统加载GLTF数据
+            return new Promise<GltfModel>((resolve, reject) => {
+                asset.on('load', () => {
+                    try {
+                        const resource = asset.resource as ContainerResource;
+                        
+                        // 创建实体
+                        const entity = resource.instantiateRenderEntity();
+                        if (!entity) {
+                            throw new Error('Failed to create entity from GLTF');
+                        }
     
-            // 创建ContainerResource
-            const resource = new ContainerResource();
-            asset.resource = resource;
+                        // 添加到场景
+                        this.app.root.addChild(entity);
+
+                        // 确保基础光照
+                        this.ensureBasicLighting();
+
+                        // 配置材质以支持光照
+                        this.configureMaterialsForLighting(entity);
+
+                        // 设置渲染状态
+                        entity.findComponents('render').forEach((render: any) => {
+                            render.castShadows = false;
+                            render.receiveShadows = false;
+                        });
     
-            // 加载GLTF数据
-            await new Promise<void>((resolve, reject) => {
-                resource.load(arrayBuffer, (err: string | null) => {
-                    if (err) {
-                        reject(new Error(err));
-                    } else {
-                        resolve();
+                        // 创建GltfModel实例
+                        const model = new GltfModel(asset, entity, loadRequest.filename);
+                        
+                        // 触发加载完成事件
+                        this.events.fire('model.loaded.gltf', model);
+    
+                        resolve(model);
+                    } catch (error) {
+                        reject(error);
                     }
                 });
+                
+                asset.on('error', (err: string) => {
+                    reject(new Error(err));
+                });
+                
+                // 手动设置资源数据并触发加载
+                asset.resource = new ContainerResource();
+                asset.data = arrayBuffer;
+                this.app.assets.load(asset);
             });
-    
-            // 创建实体
-            const entity = resource.instantiateRenderEntity();
-            if (!entity) {
-                throw new Error('Failed to create entity from GLTF');
-            }
-    
-            // 添加到场景
-            this.app.root.addChild(entity);
-    
-            // 设置渲染状态
-            entity.findComponents('render').forEach((render: any) => {
-                render.castShadows = false;
-                render.receiveShadows = false;
-                render.material.cull = CULLFACE_NONE;
-            });
-    
-            // 创建GltfModel实例
-            const model = new GltfModel(asset, entity, loadRequest.filename);
-            
-            // 触发加载完成事件
-            this.events.fire('model.loaded.gltf', model);
-    
-            return model;
     
         } catch (error) {
             console.error('GLTF loading error:', error);
@@ -349,13 +361,13 @@ class AssetLoader {
                 compressInfo
             });
     
-            const resource = new GSplatResource(gsplatData);
+            const resource = new GSplatResource(this.app.graphicsDevice, gsplatData);
             const asset = new Asset(`lcc-${assetId++}`, 'gsplat', {
                 url: loadRequest.url || loadRequest.filename
             });
             asset.resource = resource;
     
-            const splat = new Splat(asset, loadRequest.filename);
+            const splat = new Splat(asset);
             this.events.fire('model.loaded', splat);
     
             return splat;
