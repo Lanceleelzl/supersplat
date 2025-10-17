@@ -302,6 +302,15 @@ class PropertiesPanel extends Container {
     private bindEvents() {
         // 监听选择变化事件（当选择不同元素时）
         this.events.on('selection.changed', (element: any) => {
+            // 检查属性预览是否启用
+            const attributePreviewEnabled = this.events.invoke('attribute.isEnabled');
+            
+            if (!attributePreviewEnabled) {
+                // 如果属性预览未启用，隐藏面板
+                this.hideProperties();
+                return;
+            }
+
             if (element && element.type === ElementType.model) {
                 const model = element as GltfModel;
                 this.currentModel = model;
@@ -323,6 +332,16 @@ class PropertiesPanel extends Container {
         this.events.on('camera.focalPointPicked', (details: { splat?: any, model?: GltfModel }) => {
             console.log('camera.focalPointPicked 事件触发:', details);
 
+            // 检查属性预览是否启用
+            const attributePreviewEnabled = this.events.invoke('attribute.isEnabled');
+            console.log('属性预览启用状态:', attributePreviewEnabled);
+
+            if (!attributePreviewEnabled) {
+                // 如果属性预览未启用，不显示属性面板
+                console.log('属性预览未启用，不显示属性面板');
+                return;
+            }
+
             if (details.model && details.model.type === ElementType.model) {
                 // 检查模型是否可选择，不可选择的模型不显示属性面板
                 if (!details.model.selectable) {
@@ -332,7 +351,7 @@ class PropertiesPanel extends Container {
 
                 console.log('选中GLB模型:', details.model.filename, '是否为巡检模型:', (details.model as any).isInspectionModel);
 
-                // 无论面板是否隐藏，都更新显示的模型
+                // 显示属性面板
                 this.currentModel = details.model;
                 this.currentSplat = null;
                 this.showPanel();
@@ -347,7 +366,7 @@ class PropertiesPanel extends Container {
 
                 console.log('选中高斯模型:', details.splat.filename || details.splat.name);
 
-                // 无论面板是否隐藏，都更新显示的模型
+                // 显示属性面板
                 this.currentSplat = details.splat;
                 this.currentModel = null;
                 this.showPanel();
@@ -357,6 +376,34 @@ class PropertiesPanel extends Container {
                 // 点击空白区域，隐藏属性面板
                 console.log('点击空白区域，隐藏属性面板');
                 this.hideProperties();
+            }
+        });
+
+        // 监听属性预览状态变化事件
+        this.events.on('attribute.statusChanged', (attributePreviewEnabled: boolean) => {
+            console.log('属性预览状态切换:', attributePreviewEnabled);
+            
+            if (!attributePreviewEnabled) {
+                // 如果属性预览被关闭，隐藏属性面板
+                this.hideProperties();
+            } else {
+                // 如果属性预览被开启，检查当前是否有选中的元素
+                const currentSelection = this.events.invoke('selection');
+                if (currentSelection) {
+                    console.log('属性预览开启，刷新当前选中元素的属性:', currentSelection);
+                    // 重新显示当前选中元素的属性
+                    if (currentSelection.type === ElementType.model) {
+                        this.currentModel = currentSelection;
+                        this.currentSplat = null;
+                        this.showPanel();
+                        this.showModelProperties(currentSelection);
+                    } else if (currentSelection.type === ElementType.splat) {
+                        this.currentSplat = currentSelection;
+                        this.currentModel = null;
+                        this.showPanel();
+                        this.showSplatProperties(currentSelection);
+                    }
+                }
             }
         });
 
@@ -407,6 +454,7 @@ class PropertiesPanel extends Container {
         this.currentSplat = null;
         this.placeholder.hidden = false;
         this.infoContainer.hidden = true;
+        this.hidden = true; // 隐藏整个面板
         this.clearLabels();
     }
 

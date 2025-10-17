@@ -293,10 +293,17 @@ const main = async () => {
 
     // 快照预览开关状态
     let snapshotPreviewEnabled = false;
+    // 属性预览开关状态
+    let attributePreviewEnabled = false;
 
     // 添加获取快照预览状态的事件处理器
     events.function('snapshot.isEnabled', () => {
         return snapshotPreviewEnabled;
+    });
+
+    // 添加获取属性预览状态的事件处理器
+    events.function('attribute.isEnabled', () => {
+        return attributePreviewEnabled;
     });
 
     // 监听快照预览开关切换
@@ -311,6 +318,19 @@ const main = async () => {
         }
     });
 
+    // 监听属性预览开关切换
+    events.on('attribute.toggle', () => {
+        attributePreviewEnabled = !attributePreviewEnabled;
+
+        // 同步菜单显示状态
+        editorUI.menu.updateAttributePreviewStatus(attributePreviewEnabled);
+
+        console.log('属性预览状态切换:', attributePreviewEnabled ? '开启' : '关闭');
+        
+        // 触发属性面板的状态更新事件，使用不同的事件名避免循环
+        events.fire('attribute.statusChanged', attributePreviewEnabled);
+    });
+
     // 监听marker选择事件
     events.on('marker.selected', (model: any) => {
         // 只有开启快照预览时才显示窗口
@@ -322,11 +342,19 @@ const main = async () => {
 
     // 监听视口点击GLB模型事件，转换为marker选择
     events.on('camera.focalPointPicked', (data: any) => {
+        // 处理巡检模型的快照预览功能
         if (data.model && (data.model as any).isInspectionModel) {
             if (snapshotPreviewEnabled) {
                 // 触发marker选择事件，统一处理逻辑
                 events.fire('marker.selected', data.model);
             }
+        }
+        
+        // 属性预览功能对所有模型都生效，不仅限于巡检模型
+        if (data.model && attributePreviewEnabled) {
+            console.log('显示模型属性面板:', data.model);
+            // 属性面板的显示逻辑已经在PropertiesPanel中处理
+            // 这里不需要额外的处理，因为PropertiesPanel已经监听了camera.focalPointPicked事件
         }
     });
 

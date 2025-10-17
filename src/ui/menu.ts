@@ -21,6 +21,7 @@ import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
 import kuaizhaoSvg from './svg/kuaizhao.svg';
+import attributeSvg from './svg/attribute.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -44,6 +45,8 @@ class Menu extends Container {
     private snapshotMenuLabel: Label | null = null;
     private inspectionMenuPanel: MenuPanel | null = null;
     private events: Events; // 添加events引用
+    private attributePreviewEnabled = false; // 属性预览状态
+    private attributeMenuItem: any = null; // 属性预览菜单项
 
     constructor(events: Events, args = {}) {
         args = {
@@ -267,12 +270,23 @@ class Menu extends Container {
             }
         };
 
+        // 创建查看属性菜单项 - 使用attribute图标，激活时在文本后添加√
+        this.attributeMenuItem = {
+            text: '查看属性',
+            icon: createSvg(attributeSvg), // 使用attribute.svg图标
+            onSelect: () => {
+                // 只触发事件，不在这里修改状态，让main.ts统一处理状态变更
+                events.fire('attribute.toggle');
+            }
+        };
+
         this.inspectionMenuPanel = new MenuPanel([{
             text: localize('inspection.add-point'),
             icon: createSvg(sceneImport),
             onSelect: () => events.fire('inspection.addPoint')
         },
         this.snapshotMenuItem,
+        this.attributeMenuItem,
         {
             text: '导出巡检参数',
             icon: createSvg(sceneExport),
@@ -402,18 +416,45 @@ class Menu extends Container {
         }
     }
 
+    private updateAttributeMenuText() {
+        console.log('updateAttributeMenuText called, attributePreviewEnabled:', this.attributePreviewEnabled);
+        
+        if (this.attributeMenuItem && this.inspectionMenuPanel) {
+            // 更新菜单项的文本，激活时添加√符号
+            this.attributeMenuItem.text = this.attributePreviewEnabled ? '查看属性 ✓' : '查看属性';
+            
+            // 重新构建整个菜单面板以确保正确显示
+            this.rebuildInspectionMenu();
+            
+            console.log(this.attributePreviewEnabled ? 
+                'Attribute preview enabled - showing checkmark' : 
+                'Attribute preview disabled - no checkmark');
+        } else {
+            console.error('attributeMenuItem or inspectionMenuPanel is null');
+        }
+    }
+
     private rebuildInspectionMenu() {
-        if (this.inspectionMenuPanel && this.snapshotMenuItem) {
+        if (this.inspectionMenuPanel && this.snapshotMenuItem && this.attributeMenuItem) {
             // 更新快照菜单项的文本，激活时添加√符号
             this.snapshotMenuItem.text = this.snapshotPreviewEnabled ? '快照预览 ✓' : '快照预览';
+            // 更新属性菜单项的文本，激活时添加√符号
+            this.attributeMenuItem.text = this.attributePreviewEnabled ? '查看属性 ✓' : '查看属性';
             
             // 直接更新菜单面板中对应菜单项的文本
-            // 快照预览是第2个菜单项 (index 1)
             const menuRows = this.inspectionMenuPanel.dom.querySelectorAll('.menu-row');
+            // 快照预览是第2个菜单项 (index 1)
             if (menuRows[1]) {
                 const textLabel = menuRows[1].querySelector('.menu-row-text');
                 if (textLabel) {
                     textLabel.textContent = this.snapshotMenuItem.text;
+                }
+            }
+            // 查看属性是第3个菜单项 (index 2)
+            if (menuRows[2]) {
+                const textLabel = menuRows[2].querySelector('.menu-row-text');
+                if (textLabel) {
+                    textLabel.textContent = this.attributeMenuItem.text;
                 }
             }
         }
@@ -423,12 +464,20 @@ class Menu extends Container {
     private updateMenuItemDisplay() {
         // 更新快照菜单项的图标
         this.updateSnapshotMenuText();
+        // 更新属性菜单项的图标
+        this.updateAttributeMenuText();
     }
 
     // 公开方法供外部调用
     public updateSnapshotPreviewStatus(enabled: boolean) {
         this.snapshotPreviewEnabled = enabled;
         this.updateSnapshotMenuText();
+    }
+
+    // 公开方法供外部调用
+    public updateAttributePreviewStatus(enabled: boolean) {
+        this.attributePreviewEnabled = enabled;
+        this.updateAttributeMenuText();
     }
 }
 
