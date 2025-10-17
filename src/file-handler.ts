@@ -44,6 +44,13 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
             'image/webp': ['.webp']
         }
     },
+    'lcc': {
+        description: 'LCC Scene',
+        accept: {
+            'application/json': ['.lcc'],
+            'application/octet-stream': ['.bin']
+        }
+    },
     'splat': {
         description: 'Splat文件',
         accept: {
@@ -173,7 +180,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // import a single file, .ply, .splat or meta.json
     const importFile = async (file: ImportFile, animationFrame: boolean) => {
         try {
-            const model = await scene.assetLoader.loadModel({
+            const model = await scene.assetLoader.load({
                 contents: file.contents,
                 filename: file.filename,
                 url: file.url,
@@ -205,7 +212,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             return name;
         };
 
-        const model = await scene.assetLoader.loadModel({
+        const model = await scene.assetLoader.load({
             filename: files[meta].filename,
             url: urls[meta],
             animationFrame,
@@ -234,19 +241,32 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 return undefined;
             };
 
+<<<<<<< HEAD
             const model = await scene.assetLoader.loadModel({
+=======
+
+            const model = await scene.assetLoader.load({
+>>>>>>> main
                 filename: files[meta].filename,
                 contents: files[meta].contents,
                 animationFrame,
                 mapFile
             });
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
             scene.add(model);
 
             return model;
         } catch (error) {
             await showLoadError(error.message ?? error, 'lcc');
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
     };
 
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
@@ -263,7 +283,11 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } else if (isSog(filenames)) {
             // import sog files
             result.push(await importSog(files, animationFrame));
+<<<<<<< HEAD
         } else if (isLcc(filenames)) {
+=======
+        }  else if (isLcc(filenames)) {
+>>>>>>> main
             // import lcc files
             result.push(await importLcc(files, animationFrame));
         } else {
@@ -304,7 +328,11 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
+<<<<<<< HEAD
         fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
+=======
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin');
+>>>>>>> main
         fileSelector.setAttribute('multiple', 'true');
 
 
@@ -368,7 +396,11 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.ply,
                         filePickerTypes.splat,
                         filePickerTypes.sog,
+<<<<<<< HEAD
                         filePickerTypes.gltf
+=======
+                        filePickerTypes.lcc
+>>>>>>> main
                     ]
                 });
 

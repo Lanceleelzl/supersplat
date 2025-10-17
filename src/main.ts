@@ -16,6 +16,7 @@ import { Shortcuts } from './shortcuts';
 import { registerTimelineEvents } from './timeline';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
+import { FloodSelection } from './tools/flood-selection';
 import { LassoSelection } from './tools/lasso-selection';
 import { MoveTool } from './tools/move-tool';
 import { PolygonSelection } from './tools/polygon-selection';
@@ -73,6 +74,7 @@ const initShortcuts = (events: Events) => {
     // 初始化快捷键配置
     const shortcuts = new Shortcuts(events);
 
+<<<<<<< HEAD
     shortcuts.register(['Delete', 'Backspace'], { event: 'select.delete' });  // 删除选中项
     shortcuts.register(['Escape'], { event: 'tool.deactivate' });  // 退出当前工具
     shortcuts.register(['Tab'], { event: 'selection.next' });  // 切换到下一个选择
@@ -98,6 +100,34 @@ const initShortcuts = (events: Events) => {
     shortcuts.register(['M', 'm'], { event: 'camera.toggleMode' });  // 切换相机模式
     shortcuts.register(['D', 'd'], { event: 'dataPanel.toggle' });  // 切换数据面板
     shortcuts.register([' '], { event: 'camera.toggleOverlay' });  // 切换覆盖层
+=======
+    shortcuts.register(['Delete', 'Backspace'], { event: 'select.delete' });
+    shortcuts.register(['Escape'], { event: 'tool.deactivate' });
+    shortcuts.register(['Tab'], { event: 'selection.next' });
+    shortcuts.register(['1'], { event: 'tool.move', sticky: true });
+    shortcuts.register(['2'], { event: 'tool.rotate', sticky: true });
+    shortcuts.register(['3'], { event: 'tool.scale', sticky: true });
+    shortcuts.register(['G', 'g'], { event: 'grid.toggleVisible' });
+    shortcuts.register(['C', 'c'], { event: 'tool.toggleCoordSpace' });
+    shortcuts.register(['F', 'f'], { event: 'camera.focus' });
+    shortcuts.register(['R', 'r'], { event: 'tool.rectSelection', sticky: true });
+    shortcuts.register(['P', 'p'], { event: 'tool.polygonSelection', sticky: true });
+    shortcuts.register(['L', 'l'], { event: 'tool.lassoSelection', sticky: true });
+    shortcuts.register(['B', 'b'], { event: 'tool.brushSelection', sticky: true });
+    shortcuts.register(['O', 'o'], { event: 'tool.floodSelection', sticky: true });
+    shortcuts.register(['A', 'a'], { event: 'select.all', ctrl: true });
+    shortcuts.register(['A', 'a'], { event: 'select.none', shift: true });
+    shortcuts.register(['I', 'i'], { event: 'select.invert', ctrl: true });
+    shortcuts.register(['H', 'h'], { event: 'select.hide' });
+    shortcuts.register(['U', 'u'], { event: 'select.unhide' });
+    shortcuts.register(['['], { event: 'tool.brushSelection.smaller' });
+    shortcuts.register([']'], { event: 'tool.brushSelection.bigger' });
+    shortcuts.register(['Z', 'z'], { event: 'edit.undo', ctrl: true, capture: true });
+    shortcuts.register(['Z', 'z'], { event: 'edit.redo', ctrl: true, shift: true, capture: true });
+    shortcuts.register(['M', 'm'], { event: 'camera.toggleMode' });
+    shortcuts.register(['D', 'd'], { event: 'dataPanel.toggle' });
+    shortcuts.register([' '], { event: 'camera.toggleOverlay' });
+>>>>>>> main
 
     return shortcuts;
 };
@@ -246,6 +276,7 @@ const main = async () => {
     const toolManager = new ToolManager(events);
     toolManager.register('rectSelection', new RectSelection(events, editorUI.toolsContainer.dom));
     toolManager.register('brushSelection', new BrushSelection(events, editorUI.toolsContainer.dom, mask));
+    toolManager.register('floodSelection', new FloodSelection(events, editorUI.toolsContainer.dom, mask, editorUI.canvasContainer));
     toolManager.register('polygonSelection', new PolygonSelection(events, editorUI.toolsContainer.dom, mask));
     toolManager.register('lassoSelection', new LassoSelection(events, editorUI.toolsContainer.dom, mask));
     toolManager.register('sphereSelection', new SphereSelection(events, scene, editorUI.canvasContainer));

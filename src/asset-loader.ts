@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { AppBase, Asset, GSplatData, GSplatResource, ContainerResource, Entity, CULLFACE_NONE, Color } from 'playcanvas';
 
 import { Events } from './events';
@@ -88,6 +89,19 @@ const deserializeFromSSplat = (data: ArrayBufferLike) => {
 };
 
 let assetId = 0;
+=======
+import { AppBase, Asset, GSplatData, GSplatResource, Vec3 } from 'playcanvas';
+
+import { Events } from './events';
+import { loadLcc } from './loaders/lcc';
+import { ModelLoadRequest } from './loaders/model-load-request';
+import { loadPly } from './loaders/ply';
+import { loadSplat } from './loaders/splat';
+import { Splat } from './splat';
+
+const defaultOrientation = new Vec3(0, 0, 180);
+const lccOrientation = new Vec3(90, 0, 180);
+>>>>>>> main
 
 // handles loading gltf container assets
 class AssetLoader {
@@ -102,121 +116,44 @@ class AssetLoader {
         this.defaultAnisotropy = defaultAnisotropy || 1;
     }
 
-    loadPly(loadRequest: ModelLoadRequest) {
-        if (!loadRequest.animationFrame) {
-            this.events.fire('startSpinner');
-        }
-
-        let file;
-
-        const isSog = loadRequest.filename.toLowerCase().endsWith('.sog');
-        if (isSog) {
-            // sog expects contents to be an arrayBuffer
-            file = {
-                url: URL.createObjectURL(loadRequest.contents),
-                filename: loadRequest.filename
-            };
-        } else {
-            const contents = loadRequest.contents && (loadRequest.contents instanceof Response ? loadRequest.contents : new Response(loadRequest.contents));
-            file = {
-                // we must construct a unique url if contents is provided
-                url: contents ? `local-asset-${assetId++}` : loadRequest.url ?? loadRequest.filename,
-                filename: loadRequest.filename,
-                contents
-            };
-        }
-
-        const data = {
-            // decompress data on load
-            decompress: true,
-            // disable morton re-ordering when loading animation frames
-            reorder: !(loadRequest.animationFrame ?? false),
-            mapUrl: loadRequest.mapUrl
-        };
-
-        const options = {
-            mapUrl: loadRequest.mapUrl
-        };
-
-        return new Promise<Splat>((resolve, reject) => {
-            const asset = new Asset(
-                loadRequest.filename || loadRequest.url,
-                'gsplat',
-                // @ts-ignore
-                file,
-                data,
-                options
-            );
-
-            asset.on('load:data', (data: GSplatData) => {
-                // support loading 2d splats by adding scale_2 property with almost 0 scale
-                if (data instanceof GSplatData && data.getProp('scale_0') && data.getProp('scale_1') && !data.getProp('scale_2')) {
-                    const scale2 = new Float32Array(data.numSplats).fill(Math.log(1e-6));
-                    data.addProp('scale_2', scale2);
-
-                    // place the new scale_2 property just after scale_1
-                    const props = data.getElement('vertex').properties;
-                    props.splice(props.findIndex((prop: any) => prop.name === 'scale_1') + 1, 0, props.splice(props.length - 1, 1)[0]);
-                }
-            });
-
-            asset.on('load', () => {
-                // check the PLY contains minimal set of we expect
-                const required = [
-                    'x', 'y', 'z',
-                    'scale_0', 'scale_1', 'scale_2',
-                    'rot_0', 'rot_1', 'rot_2', 'rot_3',
-                    'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity'
-                ];
-                const splatData = (asset.resource as GSplatResource).gsplatData as GSplatData;
-                const missing = required.filter(x => !splatData.getProp(x));
-                if (missing.length > 0) {
-                    reject(new Error(`This file does not contain gaussian splatting data. The following properties are missing: ${missing.join(', ')}`));
-                } else {
-                    resolve(new Splat(asset));
-                }
-            });
-
-            asset.on('error', (err: string) => {
-                reject(err);
-            });
-
-            this.app.assets.add(asset);
-            this.app.assets.load(asset);
-        }).finally(() => {
-            if (!loadRequest.animationFrame) {
-                this.events.fire('stopSpinner');
-            }
-        });
-    }
-
-    async loadSplat(loadRequest: ModelLoadRequest) {
-        this.events.fire('startSpinner');
-
-        try {
-            const contents = loadRequest.contents && (loadRequest.contents instanceof Response ? loadRequest.contents : new Response(loadRequest.contents));
-            const response = await (contents ?? fetch(loadRequest.url || loadRequest.filename)) as Response;
-
-            if (!response || !response.ok || !response.body) {
-                throw new Error('Failed to fetch splat data');
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
-
-            const gsplatData = deserializeFromSSplat(arrayBuffer);
-
+    async load(loadRequest: ModelLoadRequest) {
+        const wrap = (gsplatData: GSplatData) => {
             const asset = new Asset(loadRequest.filename || loadRequest.url, 'gsplat', {
-                url: loadRequest.url,
+                url: loadRequest.contents ? `local-asset-${Date.now()}` : loadRequest.url ?? loadRequest.filename,
                 filename: loadRequest.filename
             });
             this.app.assets.add(asset);
             asset.resource = new GSplatResource(this.app.graphicsDevice, gsplatData);
+            return asset;
+        };
 
-            return new Splat(asset);
+        if (!loadRequest.animationFrame) {
+            this.events.fire('startSpinner');
+        }
+
+        try {
+            const filename = (loadRequest.filename || loadRequest.url).toLowerCase();
+
+            let asset;
+            let orientation = defaultOrientation;
+
+            if (filename.endsWith('.splat')) {
+                asset = wrap(await loadSplat(loadRequest));
+            } else if (filename.endsWith('.lcc')) {
+                asset = wrap(await loadLcc(loadRequest));
+                orientation = lccOrientation;
+            } else {
+                asset = await loadPly(this.app.assets, loadRequest);
+            }
+
+            return new Splat(asset, orientation);
         } finally {
-            this.events.fire('stopSpinner');
+            if (!loadRequest.animationFrame) {
+                this.events.fire('stopSpinner');
+            }
         }
     }
+<<<<<<< HEAD
 
     // 恢复原始的GLB加载方法，使用PlayCanvas Container Asset系统
     async loadGltf(loadRequest: ModelLoadRequest): Promise<GltfModel> {
@@ -472,6 +409,8 @@ class AssetLoader {
             }
         });
     }
+=======
+>>>>>>> main
 }
 
 export { AssetLoader };

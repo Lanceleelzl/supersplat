@@ -3,6 +3,7 @@ import {
     ADDRESS_CLAMP_TO_EDGE,
     FILTER_NEAREST,
     PIXELFORMAT_RGBA8,
+    PIXELFORMAT_RGBA16F,
     PIXELFORMAT_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     PROJECTION_PERSPECTIVE,
@@ -372,9 +373,10 @@ class Camera extends Element {
     rebuildRenderTargets() {
         const device = this.scene.graphicsDevice;
         const { width, height } = this.targetSize ?? this.scene.targetSize;
+        const format = this.scene.events.invoke('camera.highPrecision') ? PIXELFORMAT_RGBA16F : PIXELFORMAT_RGBA8;
 
         const rt = this.entity.camera.renderTarget;
-        if (rt && rt.width === width && rt.height === height) {
+        if (rt && rt.width === width && rt.height === height && rt.colorBuffer.format === format) {
             return;
         }
 
@@ -402,7 +404,7 @@ class Camera extends Element {
         };
 
         // in with the new
-        const colorBuffer = createTexture('cameraColor', width, height, PIXELFORMAT_RGBA8);
+        const colorBuffer = createTexture('cameraColor', width, height, format);
         const depthBuffer = createTexture('cameraDepth', width, height, PIXELFORMAT_DEPTH);
         const renderTarget = new RenderTarget({
             colorBuffer,

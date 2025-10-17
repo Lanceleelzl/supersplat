@@ -271,7 +271,23 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         scene.forceRender = true;
     });
 
+<<<<<<< HEAD
     // 网格可见性控制
+=======
+    events.on('camera.highPrecision', () => {
+        scene.forceRender = true;
+    });
+
+    events.on('selection.changed', () => {
+        scene.forceRender = true;
+    });
+
+    events.on('tool.coordSpace', () => {
+        scene.forceRender = true;
+    });
+
+    // grid.visible
+>>>>>>> main
 
     const setGridVisible = (visible: boolean) => {
         if (visible !== scene.grid.visible) {
@@ -344,7 +360,30 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         setBoundVisible(!events.invoke('camera.bound'));
     });
 
+<<<<<<< HEAD
     // 相机聚焦功能
+=======
+    // camera.highPrecision
+
+    let highPrecision = scene.config.camera.highPrecision;
+
+    const sethighPrecision = (enabled: boolean) => {
+        if (enabled !== highPrecision) {
+            highPrecision = enabled;
+            events.fire('camera.highPrecision', highPrecision);
+        }
+    };
+
+    events.function('camera.highPrecision', () => {
+        return highPrecision;
+    });
+
+    events.on('camera.sethighPrecision', (value: boolean) => {
+        sethighPrecision(value);
+    });
+
+    // camera.focus
+>>>>>>> main
 
     events.on('camera.focus', () => {
         const splat = selectedSplats()[0];
@@ -624,7 +663,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             const blob = new Blob(buffers as unknown as ArrayBuffer[], { type: 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
             const { filename } = splat;
-            const copy = await scene.assetLoader.loadPly({ url, filename });
+            const copy = await scene.assetLoader.load({ url, filename });
 
             if (func === 'separate') {
                 editHistory.add(new MultiOp([
