@@ -356,9 +356,6 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         setBoundVisible(!events.invoke('camera.bound'));
     });
 
-<<<<<<< HEAD
-    // 相机聚焦功能
-=======
     // camera.highPrecision
 
     let highPrecision = scene.config.camera.highPrecision;
@@ -379,7 +376,6 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     });
 
     // camera.focus
->>>>>>> main
 
     events.on('camera.focus', () => {
         const splat = selectedSplats()[0];
