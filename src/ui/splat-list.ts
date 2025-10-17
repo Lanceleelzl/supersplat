@@ -255,8 +255,9 @@ class InspectionPointContainer extends Container {
         });
 
         remove.dom.addEventListener('click', (event: MouseEvent) => {
+            console.log('删除按钮被点击 - InspectionPointContainer:', this.pointName);
             event.stopPropagation();
-            this.emit('removeClicked', this.pointName);
+            this.emit('removeClicked', this);
         });
 
         // 绑定悬停事件
@@ -494,6 +495,7 @@ class SplatItem extends Container {
         };
 
         const handleRemove = (event: MouseEvent) => {
+            console.log('删除按钮被点击 - SplatItem:', this.name);
             event.stopPropagation();
             event.preventDefault();
             this.emit('removeClicked', this);
@@ -648,6 +650,10 @@ class SplatList extends Container {
                 item.on('duplicateClicked', () => {
                     // Splat模型暂不支持复制功能，可在后续版本中实现
                     console.log('Splat模型复制功能暂未实现');
+                });
+                item.on('removeClicked', () => {
+                    console.log('SplatItem removeClicked 事件被触发，转发到 SplatList');
+                    this.emit('removeClicked', item);
                 });
                 item.on('rename', (value: string) => {
                     events.fire('edit.add', new SplatRenameOp(splat, value));
@@ -841,6 +847,7 @@ class SplatList extends Container {
         // 选择事件现在直接在SplatItem创建时绑定，不再需要在SplatList级别处理
 
         this.on('removeClicked', async (item: SplatItem) => {
+            console.log('SplatList收到removeClicked事件:', item);
             let element;
             for (const [key, value] of items) {
                 if (item === value) {
@@ -849,7 +856,9 @@ class SplatList extends Container {
                 }
             }
 
+            console.log('找到对应的element:', element);
             if (!element) {
+                console.log('未找到对应的element，退出');
                 return;
             }
 
@@ -857,13 +866,16 @@ class SplatList extends Container {
                 (element as Splat).name :
                 (element as GltfModel).filename;
 
+            console.log('准备显示删除确认对话框:', elementName);
             const result = await events.invoke('showPopup', {
                 type: 'yesno',
                 header: `Remove ${element.type === ElementType.splat ? 'Splat' : 'Model'}`,
                 message: `Are you sure you want to remove '${elementName}' from the scene? This operation can not be undone.`
             });
 
+            console.log('用户选择结果:', result);
             if (result?.action === 'yes') {
+                console.log('执行删除操作');
                 element.destroy();
             }
         });
