@@ -42,11 +42,6 @@ class InfiniteGrid extends Element {
     add() {
         const device = this.scene.app.graphicsDevice;
 
-<<<<<<< HEAD
-        // Suppress deprecation warning by using createShaderFromCode
-        this.shader = createShaderFromCode(device, vertexShader, fragmentShader, 'infinite-grid', {
-            vertex_position: SEMANTIC_POSITION
-=======
         this.shader = ShaderUtils.createShader(device, {
             uniqueName: 'infinite-grid',
             attributes: {
@@ -54,7 +49,6 @@ class InfiniteGrid extends Element {
             },
             vertexGLSL: vertexShader,
             fragmentGLSL: fragmentShader
->>>>>>> main
         });
 
         this.quadRender = new QuadRender(this.shader);
@@ -79,21 +73,6 @@ class InfiniteGrid extends Element {
                 device.setDepthState(DepthState.WRITEDEPTH);
                 device.setStencilState(null, null);
 
-<<<<<<< HEAD
-                // Set required shader uniforms
-                const { camera } = this.scene;
-                const cameraEntity = camera.entity;
-
-                // Set view_position uniform
-                const viewPosition = cameraEntity.getPosition();
-                device.scope.resolve('view_position').setValue([viewPosition.x, viewPosition.y, viewPosition.z]);
-
-                // Set matrix_viewProjection uniform
-                const viewProjectionMatrix = cameraEntity.camera.projectionMatrix.clone().mul(cameraEntity.camera.viewMatrix);
-                device.scope.resolve('matrix_viewProjection').setValue(viewProjectionMatrix.data);
-
-=======
->>>>>>> main
                 // select the correctly plane in orthographic mode
                 if (camera.ortho) {
                     const cmp = (a:Vec3, b: Vec3) => 1.0 - Math.abs(a.dot(b)) < 1e-03;

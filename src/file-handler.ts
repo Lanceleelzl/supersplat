@@ -241,32 +241,19 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 return undefined;
             };
 
-<<<<<<< HEAD
-            const model = await scene.assetLoader.loadModel({
-=======
-
             const model = await scene.assetLoader.load({
->>>>>>> main
                 filename: files[meta].filename,
                 contents: files[meta].contents,
                 animationFrame,
                 mapFile
             });
 
-<<<<<<< HEAD
-=======
-
->>>>>>> main
             scene.add(model);
 
             return model;
         } catch (error) {
             await showLoadError(error.message ?? error, 'lcc');
         }
-<<<<<<< HEAD
-=======
-
->>>>>>> main
     };
 
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
@@ -283,11 +270,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } else if (isSog(filenames)) {
             // import sog files
             result.push(await importSog(files, animationFrame));
-<<<<<<< HEAD
         } else if (isLcc(filenames)) {
-=======
-        }  else if (isLcc(filenames)) {
->>>>>>> main
             // import lcc files
             result.push(await importLcc(files, animationFrame));
         } else {

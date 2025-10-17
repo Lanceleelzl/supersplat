@@ -271,9 +271,6 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         scene.forceRender = true;
     });
 
-<<<<<<< HEAD
-    // 网格可见性控制
-=======
     events.on('camera.highPrecision', () => {
         scene.forceRender = true;
     });
@@ -287,7 +284,6 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     });
 
     // grid.visible
->>>>>>> main
 
     const setGridVisible = (visible: boolean) => {
         if (visible !== scene.grid.visible) {
