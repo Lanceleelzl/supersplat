@@ -1,10 +1,6 @@
 {
     "name": "supersplat",
-<<<<<<< HEAD
-    "version": "2.11.7",
-=======
     "version": "2.12.2",
->>>>>>> main
     "author": "PlayCanvas<support@playcanvas.com>",
     "homepage": "https://playcanvas.com/supersplat/editor",
     "description": "3D Gaussian Splat Editor",
@@ -57,13 +53,9 @@
         "sass": "^1.93.2",
         "serve": "^14.2.5",
         "tslib": "^2.8.1",
-<<<<<<< HEAD
-        "typescript": "^5.9.2"
+        "typescript": "^5.9.3"
     },
     "dependencies": {
         "xlsx": "^0.18.5"
-=======
-        "typescript": "^5.9.3"
->>>>>>> main
     }
 }

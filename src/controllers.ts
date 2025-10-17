@@ -55,10 +55,6 @@ class PointerController {
                 if (pressedButton !== -1) {
                     return;
                 }
-<<<<<<< HEAD
-                
-=======
->>>>>>> main
                 target.setPointerCapture(event.pointerId);
                 pressedButton = event.button;
                 x = event.offsetX;
@@ -83,11 +79,7 @@ class PointerController {
 
         const pointerup = (event: PointerEvent) => {
             if (event.pointerType === 'mouse') {
-<<<<<<< HEAD
-                // Only handle the release of the currently pressed button
-=======
                 // Only release if this is the button that was initially pressed
->>>>>>> main
                 if (event.button === pressedButton) {
                     pressedButton = -1;
                     target.releasePointerCapture(event.pointerId);
