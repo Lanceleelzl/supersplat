@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-// 确保 dist/model 目录存在并复制模型文件
-const distModelDir = 'dist/model';
-const staticModelDir = 'static/model';
+// 确保 dist/static/public/model 目录存在并复制模型文件
+const distModelDir = 'dist/static/public/model';
+const staticModelDir = 'static/public/model';
 
 // 创建目录（如果不存在）
 if (!fs.existsSync(distModelDir)) {

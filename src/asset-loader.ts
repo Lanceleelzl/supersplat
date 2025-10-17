@@ -218,11 +218,13 @@ class AssetLoader {
         }
     }
 
-    // 保留现有的GLB加载方法
+    // 恢复原始的GLB加载方法，使用PlayCanvas Container Asset系统
     async loadGltf(loadRequest: ModelLoadRequest): Promise<GltfModel> {
         this.events.fire('startSpinner');
     
         try {
+            console.log('Loading GLB file:', loadRequest.filename);
+            
             const getResponse = async (contents: File, filename: string | undefined, url: string | undefined) => {
                 const c = contents && (contents instanceof Response ? contents : new Response(contents));
                 const response = await (c ?? fetch(url || filename));
@@ -232,63 +234,82 @@ class AssetLoader {
                 }
                 return response;
             };
-
+            
             const response = await getResponse(loadRequest.contents, loadRequest.filename, loadRequest.url);
             const arrayBuffer = await response.arrayBuffer();
-    
-            // 创建Asset并使用PlayCanvas的资产加载系统
+            
+            console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes');
+            
+            // 创建临时URL用于PlayCanvas资产加载
+            const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
+            const tempUrl = URL.createObjectURL(blob);
+            
+            // 创建Asset并使用PlayCanvas的Container Asset系统
             const asset = new Asset(`gltf-${assetId++}`, 'container', {
-                url: loadRequest.url
+                url: tempUrl
             });
             
             this.app.assets.add(asset);
             
-            // 使用PlayCanvas的资产加载系统加载GLTF数据
+            // 使用PlayCanvas的资产加载系统
             return new Promise<GltfModel>((resolve, reject) => {
                 asset.on('load', () => {
                     try {
+                        console.log('Asset loaded successfully, resource:', asset.resource);
+                        
+                        // 清理临时URL
+                        URL.revokeObjectURL(tempUrl);
+                        
                         const resource = asset.resource as ContainerResource;
                         
-                        // 创建实体
-                        const entity = resource.instantiateRenderEntity();
-                        if (!entity) {
-                            throw new Error('Failed to create entity from GLTF');
+                        if (!resource) {
+                            throw new Error('Asset resource is null');
                         }
-    
+                        
+                        const entity = resource.instantiateRenderEntity();
+                        
+                        if (!entity) {
+                            throw new Error('Failed to instantiate render entity');
+                        }
+                        
                         // 添加到场景
                         this.app.root.addChild(entity);
-
-                        // 确保基础光照
+                        
+                        // 确保基本光照
                         this.ensureBasicLighting();
-
+                        
                         // 配置材质以支持光照
                         this.configureMaterialsForLighting(entity);
-
+                        
                         // 设置渲染状态
                         entity.findComponents('render').forEach((render: any) => {
                             render.castShadows = false;
                             render.receiveShadows = false;
                         });
-    
+                        
                         // 创建GltfModel实例
                         const model = new GltfModel(asset, entity, loadRequest.filename);
                         
                         // 触发加载完成事件
                         this.events.fire('model.loaded.gltf', model);
-    
+                        
+                        console.log('GLB model loaded successfully:', loadRequest.filename);
                         resolve(model);
+                        
                     } catch (error) {
-                        reject(error);
+                        console.error('Error in asset load callback:', error);
+                        URL.revokeObjectURL(tempUrl);
+                        reject(error as Error);
                     }
                 });
                 
-                asset.on('error', (err: string) => {
-                    reject(new Error(err));
+                asset.on('error', (err: any) => {
+                    console.error('Asset loading error:', err);
+                    URL.revokeObjectURL(tempUrl);
+                    reject(new Error(`Asset loading failed: ${err}`));
                 });
                 
-                // 手动设置资源数据并触发加载
-                asset.resource = new ContainerResource();
-                asset.data = arrayBuffer;
+                // 开始加载资产
                 this.app.assets.load(asset);
             });
     
@@ -392,6 +413,8 @@ class AssetLoader {
         }
         return this.loadPly(loadRequest);
     }
+
+
 
     private ensureBasicLighting() {
         // Check if there's already lighting
