@@ -1,6 +1,7 @@
 import { AppBase, Asset, GSplatData, GSplatResource, Vec3 } from 'playcanvas';
 
 import { Events } from './events';
+import { GltfModel } from './gltf-model';
 import { loadLcc } from './loaders/lcc';
 import { ModelLoadRequest } from './loaders/model-load-request';
 import { loadPly } from './loaders/ply';
@@ -56,6 +57,83 @@ class AssetLoader {
             }
 
             return new Splat(asset, orientation);
+        } finally {
+            if (!loadRequest.animationFrame) {
+                this.events.fire('stopSpinner');
+            }
+        }
+    }
+
+    // GLB/GLTF模型加载方法
+    async loadModel(loadRequest: ModelLoadRequest): Promise<GltfModel> {
+        if (!loadRequest.animationFrame) {
+            this.events.fire('startSpinner');
+        }
+
+        try {
+            const filename = (loadRequest.filename || loadRequest.url).toLowerCase();
+            
+            if (!filename.endsWith('.gltf') && !filename.endsWith('.glb')) {
+                throw new Error(`不支持的模型格式: ${filename}`);
+            }
+
+            // 创建资产
+            const asset = new Asset(
+                loadRequest.filename || 'model',
+                'container',
+                {
+                    url: loadRequest.url || loadRequest.filename,
+                    filename: loadRequest.filename
+                }
+            );
+
+            // 如果有文件内容，创建blob URL
+            if (loadRequest.contents) {
+                const blob = loadRequest.contents instanceof File ? 
+                    loadRequest.contents : 
+                    new Blob([loadRequest.contents]);
+                const blobUrl = URL.createObjectURL(blob);
+                asset.file = {
+                    url: blobUrl,
+                    filename: loadRequest.filename || 'model.glb'
+                };
+            }
+
+            this.app.assets.add(asset);
+
+            return new Promise((resolve, reject) => {
+                asset.ready(() => {
+                    try {
+                        const containerResource = asset.resource;
+                        if (!containerResource) {
+                            reject(new Error('模型资源加载失败'));
+                            return;
+                        }
+
+                        // 创建实体并添加模型组件
+                        const entity = containerResource.instantiateRenderEntity();
+                        if (!entity) {
+                            reject(new Error('无法创建模型实体'));
+                            return;
+                        }
+
+                        // 创建GltfModel实例
+                        const gltfModel = new GltfModel(asset, entity, loadRequest.filename);
+                        
+                        resolve(gltfModel);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+
+                asset.on('error', (err: any) => {
+                    reject(new Error(`模型加载错误: ${err}`));
+                });
+
+                // 开始加载
+                this.app.assets.load(asset);
+            });
+
         } finally {
             if (!loadRequest.animationFrame) {
                 this.events.fire('stopSpinner');
