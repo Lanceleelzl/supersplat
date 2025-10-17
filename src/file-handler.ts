@@ -313,9 +313,6 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector.setAttribute('type', 'file');
 <<<<<<< HEAD
         fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
-=======
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin');
->>>>>>> main
         fileSelector.setAttribute('multiple', 'true');
 
 
@@ -379,11 +376,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.ply,
                         filePickerTypes.splat,
                         filePickerTypes.sog,
-<<<<<<< HEAD
-                        filePickerTypes.gltf
-=======
+                        filePickerTypes.gltf,
                         filePickerTypes.lcc
->>>>>>> main
                     ]
                 });
 
