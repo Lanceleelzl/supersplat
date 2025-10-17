@@ -946,7 +946,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             const pointName = `XJ-${inspectionPointCounter}`;
 
             // 加载方位标模型
-            const modelPath = '/static/public/model/marker.glb';
+            const modelPath = '/public/model/marker.glb';
             console.log('正在加载模型:', modelPath);
 
             let model: any;
@@ -1075,7 +1075,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 // 复制所有模型
                 for (let i = 0; i < inspectionPoint.models.length; i++) {
                     const originalModel = inspectionPoint.models[i];
-                    const modelPath = '/static/public/model/marker.glb';
+                    const modelPath = '/public/model/marker.glb';
                     const response = await fetch(modelPath);
                     const blob = await response.blob();
                     const file = new File([blob], 'marker.glb', { type: 'model/gltf-binary' });
@@ -1135,7 +1135,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         const inspectionPoint = inspectionPoints.get(pointName);
         if (inspectionPoint) {
             try {
-                const modelPath = '/static/public/model/marker.glb';
+                const modelPath = '/public/model/marker.glb';
                 const response = await fetch(modelPath);
                 const blob = await response.blob();
                 const file = new File([blob], 'marker.glb', { type: 'model/gltf-binary' });
