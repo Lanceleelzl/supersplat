@@ -9,36 +9,34 @@ import { Splat } from './splat';
 import { serializePly, serializePlyCompressed, SerializeSettings, serializeSplat, serializeViewer, ViewerExportSettings } from './splat-serialize';
 import { localize } from './ui/localization';
 
-// TypeScript编译器和VSCode能找到这个类型，但ESLint找不到
+// ts compiler and vscode find this type, but eslint does not
 type FilePickerAcceptType = unknown;
 
 type ExportType = 'ply' | 'splat' | 'viewer';
 
 type FileType = 'ply' | 'compressedPly' | 'splat' | 'htmlViewer' | 'packageViewer';
 
-// 场景导出选项接口
 interface SceneExportOptions {
-    filename: string;                        // 文件名
-    splatIdx: 'all' | number;               // 点云索引（全部或指定索引）
-    serializeSettings: SerializeSettings;    // 序列化设置
+    filename: string;
+    splatIdx: 'all' | number;
+    serializeSettings: SerializeSettings;
 
-    // PLY格式相关
-    compressedPly?: boolean;                // 是否压缩PLY
+    // ply
+    compressedPly?: boolean;
 
-    // 查看器相关
-    viewerExportSettings?: ViewerExportSettings;  // 查看器导出设置
+    // viewer
+    viewerExportSettings?: ViewerExportSettings;
 }
 
-// 文件选择器支持的文件类型定义
 const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
     'ply': {
-        description: '高斯点云PLY文件',
+        description: 'Gaussian Splat PLY File',
         accept: {
             'application/ply': ['.ply']
         }
     },
     'sog': {
-        description: 'SOG场景文件',
+        description: 'SOG Scene',
         accept: {
             'application/x-gaussian-splat': ['.json', '.sog'],
             'image/webp': ['.webp']
@@ -52,16 +50,9 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
         }
     },
     'splat': {
-        description: 'Splat文件',
+        description: 'Splat File',
         accept: {
             'application/x-gaussian-splat': ['.splat']
-        }
-    },
-    'gltf': {
-        description: 'glTF 3D Model',
-        accept: {
-            'model/gltf+json': ['.gltf'],
-            'model/gltf-binary': ['.glb']
         }
     },
     'htmlViewer': {
@@ -162,6 +153,7 @@ const loadCameraPoses = async (file: ImportFile, events: Events) => {
 
 // initialize file handler events
 const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) => {
+
     const showLoadError = async (message: string, filename: string) => {
         await events.invoke('showPopup', {
             type: 'error',
@@ -173,27 +165,12 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // import a single file, .ply, .splat or meta.json
     const importFile = async (file: ImportFile, animationFrame: boolean) => {
         try {
-            const filename = file.filename.toLowerCase();
-            let model;
-            
-            // 对GLB/GLTF文件使用loadModel方法
-            if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
-                model = await scene.assetLoader.loadModel({
-                    contents: file.contents,
-                    filename: file.filename,
-                    url: file.url,
-                    animationFrame
-                });
-            } else {
-                // 对其他文件格式使用原有的load方法
-                model = await scene.assetLoader.load({
-                    contents: file.contents,
-                    filename: file.filename,
-                    url: file.url,
-                    animationFrame
-                });
-            }
-            
+            const model = await scene.assetLoader.loadModel({
+                contents: file.contents,
+                filename: file.filename,
+                url: file.url,
+                animationFrame
+            });
             scene.add(model);
             return model;
         } catch (error) {
@@ -220,7 +197,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             return name;
         };
 
-        const model = await scene.assetLoader.load({
+        const model = await scene.assetLoader.loadModel({
             filename: files[meta].filename,
             url: urls[meta],
             animationFrame,
@@ -239,41 +216,24 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             const meta = files.findIndex(f => f.filename.toLowerCase().endsWith('.lcc'));
             const mapFile = (name: string) => {
                 const lowerName = name.toLowerCase();
-                // 首先尝试精确匹配（区分大小写）
-                let idx = files.findIndex(f => f.filename === name);
-                // 如果精确匹配失败，则尝试不区分大小写的匹配
-                if (idx < 0) {
-                    idx = files.findIndex(f => f.filename.toLowerCase() === lowerName);
-                }
-                // 如果仍然找不到，尝试匹配文件名的基础部分（去掉路径）
-                if (idx < 0) {
-                    const baseName = name.split('/').pop()?.toLowerCase() || name.toLowerCase();
-                    idx = files.findIndex(f => {
-                        const fileBaseName = f.filename.split('/').pop()?.toLowerCase() || f.filename.toLowerCase();
-                        return fileBaseName === baseName;
-                    });
-                }
-                // 如果还是找不到，尝试包含匹配
-                if (idx < 0) {
-                    idx = files.findIndex(f => f.filename.toLowerCase().includes(lowerName));
-                }
+                const idx = files.findIndex(f => f.filename.toLowerCase() === lowerName);
                 if (idx >= 0) {
                     return {
                         filename: files[idx].filename,
                         contents: files[idx].contents
                     };
                 }
-                // 调试信息：列出所有可用文件
-                console.warn(`Failed to find file: ${name}. Available files:`, files.map(f => f.filename));
                 return undefined;
             };
 
-            const model = await scene.assetLoader.load({
+
+            const model = await scene.assetLoader.loadModel({
                 filename: files[meta].filename,
                 contents: files[meta].contents,
                 animationFrame,
                 mapFile
             });
+
 
             scene.add(model);
 
@@ -281,12 +241,12 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } catch (error) {
             await showLoadError(error.message ?? error, 'lcc');
         }
+
     };
 
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
     const importFiles = async (files: ImportFile[], animationFrame = false) => {
-
-        const filenames = files.map(f => f.filename.toLowerCase());
+        const filenames = files.map(f => f.filename.toLocaleLowerCase());
 
         const result = [];
 
@@ -297,14 +257,14 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } else if (isSog(filenames)) {
             // import sog files
             result.push(await importSog(files, animationFrame));
-        } else if (isLcc(filenames)) {
+        }  else if (isLcc(filenames)) {
             // import lcc files
             result.push(await importLcc(files, animationFrame));
         } else {
             // check for unrecognized file types
             for (let i = 0; i < filenames.length; i++) {
                 const filename = filenames[i];
-                if (!filename.endsWith('.ssproj') && !filename.endsWith('.json') && !filename.endsWith('.ply') && !filename.endsWith('.splat') && !filename.endsWith('.sog') && !filename.endsWith('.webp') && !filename.endsWith('.gltf') && !filename.endsWith('.glb') && !filename.endsWith('.lcc') && !filename.endsWith('.bin')) {
+                if (!filename.endsWith('.ssproj') && !filename.endsWith('.json') && !filename.endsWith('.ply') && !filename.endsWith('.splat') && !filename.endsWith('.sog') && !filename.endsWith('.webp')) {
                     await showLoadError('Unrecognized file type', filename);
                     return;
                 }
@@ -317,8 +277,6 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 } else if (filenames[i].endsWith('.json')) {
                     await importCameraPoses(files[i]);
                 } else if (filenames[i].endsWith('.ply') || filenames[i].endsWith('.splat') || filenames[i].endsWith('.sog')) {
-                    result.push(await importFile(files[i], animationFrame));
-                } else if (filenames[i].endsWith('.gltf') || filenames[i].endsWith('.glb')) {
                     result.push(await importFile(files[i], animationFrame));
                 }
             }
@@ -334,18 +292,16 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // create a file selector element as fallback when showOpenFilePicker isn't available
     let fileSelector: HTMLInputElement;
     if (!window.showOpenFilePicker) {
-
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin');
         fileSelector.setAttribute('multiple', 'true');
 
         fileSelector.onchange = () => {
             const files = [];
             for (let i = 0; i < fileSelector.files.length; i++) {
                 const file = fileSelector.files[i];
-
                 files.push({
                     filename: file.name,
                     contents: file
@@ -358,7 +314,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     }
 
     // create the file drag & drop handler
-    CreateDropHandler(dropTarget, (entries, _shift) => {
+    CreateDropHandler(dropTarget, (entries, shift) => {
         importFiles(entries.map((e) => {
             return {
                 filename: e.filename,
@@ -383,9 +339,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     });
 
     events.function('scene.empty', () => {
-        const splats = getSplats();
-        const models = scene.getElementsByType(ElementType.model);
-        return splats.length === 0 && models.length === 0;
+        return getSplats().length === 0;
     });
 
     events.function('scene.import', async () => {
@@ -400,7 +354,6 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.ply,
                         filePickerTypes.splat,
                         filePickerTypes.sog,
-                        filePickerTypes.gltf,
                         filePickerTypes.lcc
                     ]
                 });

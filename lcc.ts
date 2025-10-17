@@ -4,7 +4,6 @@
 
 import { GSplatData, Vec3 } from 'playcanvas';
 
-import { ModelLoadRequest } from './model-load-request';
 
 // The LCC_LOD_MAX_SPLATS can be adjusted according to the situation
 export const LCC_LOD_MAX_SPLATS = 20_000_000;
@@ -124,6 +123,7 @@ export const parseIndexBin = (raw: ArrayBuffer, meta:any): Array<LccUnitInfo> =>
     return infos;
 };
 
+
 const InvSigmoid = (v: number): number => {
     return -Math.log((1.0 - v) / v);
 };
@@ -187,9 +187,7 @@ const floatProps = [
     'f_dc_0', 'f_dc_1', 'f_dc_2',
     'scale_0', 'scale_1', 'scale_2'
 ];
-
 const createStorage = (length: number) => new Float32Array(length);
-
 const initProperties = (length: number): Record<string, Float32Array> => {
     const props: Record<string, Float32Array> = {};
     for (const key of floatProps) {
@@ -295,6 +293,7 @@ const processUnit = async (ctx: ProcessUnitContext): Promise<number> => {
     return propertyOffset + unitSplats;
 };
 
+
 // this function would stream data directly into GSplatData buffers
 export const deserializeFromLcc = async (param:LccParam) => {
     const { totalSplats, unitInfos, targetLod, isHasSH, dataFileContent, shFileContent, compressInfo } = param;
@@ -342,63 +341,3 @@ export const deserializeFromLcc = async (param:LccParam) => {
 
     return gsplatData;
 };
-
-const loadLcc = async (loadRequest: ModelLoadRequest) => {
-    const getResponse = async (contents: File, filename: string | undefined, url: string | undefined) => {
-        const c = contents && (contents instanceof Response ? contents : new Response(contents));
-        const response = await (c ?? fetch(url || filename));
-
-        if (!response || !response.ok || !response.body) {
-            throw new Error('Failed to fetch splat data');
-        }
-        return response;
-    };
-
-    // .lcc
-    const response:Response = await getResponse(loadRequest.contents, loadRequest.filename, loadRequest.url);
-    const text:string = await response.text();
-    const meta = JSON.parse(text);
-
-    const isHasSH: boolean =  meta.fileType === 'Quality' || !!(loadRequest.mapFile('shcoef.bin'));
-    const compressInfo: CompressInfo = parseMeta(meta);
-    const splats: number[] = meta.splats;
-
-    // select a lod level
-    let targetLod =  splats.findIndex(value => value < LCC_LOD_MAX_SPLATS);
-    if (targetLod < 0) {
-        targetLod = splats.length - 1;
-    }
-    const totalSplats = splats[targetLod];
-
-    // check files
-    const indexFile = loadRequest.mapFile('index.bin');
-    const dataFile = loadRequest.mapFile('data.bin');
-    const shFile = isHasSH ? loadRequest.mapFile('shcoef.bin') : null;
-    if (!indexFile?.contents) {
-        throw new Error('Failed to fetch index.bin!');
-    }
-    if (!dataFile?.contents) {
-        throw new Error('Failed to fetch data.bin!');
-    }
-    if (isHasSH && !shFile?.contents) {
-        throw new Error('Failed to fetch shcoef.bin!');
-    }
-
-    // index.bin
-    const indexRes = await getResponse(indexFile.contents, indexFile.filename, undefined);
-    const indexArrayBuffer = await indexRes.arrayBuffer();
-    const unitInfos: LccUnitInfo[] = parseIndexBin(indexArrayBuffer, meta);
-
-    // data.bin + shcoef.bin -> gsplatData
-    return await deserializeFromLcc({
-        totalSplats,
-        unitInfos,
-        targetLod,
-        isHasSH,
-        dataFileContent: dataFile.contents,
-        shFileContent: shFile?.contents,
-        compressInfo
-    });
-};
-
-export { loadLcc };

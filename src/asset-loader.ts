@@ -11,7 +11,7 @@ import { Splat } from './splat';
 const defaultOrientation = new Vec3(0, 0, 180);
 const lccOrientation = new Vec3(90, 0, 180);
 
-let assetId = 0;
+const assetId = 0;
 
 // handles loading gltf container assets
 class AssetLoader {
@@ -75,7 +75,14 @@ class AssetLoader {
 
         try {
             const filename = (loadRequest.filename || loadRequest.url).toLowerCase();
-            
+
+            // 支持LCC格式 - 官方修复
+            if (filename.endsWith('.splat') || filename.endsWith('.lcc')) {
+                // 对于splat和lcc文件，使用load方法并返回Splat对象
+                const splat = await this.load(loadRequest);
+                return splat as any; // 临时类型转换，因为返回类型不匹配
+            }
+
             if (!filename.endsWith('.gltf') && !filename.endsWith('.glb')) {
                 throw new Error(`不支持的模型格式: ${filename}`);
             }
@@ -92,8 +99,8 @@ class AssetLoader {
 
             // 如果有文件内容，创建blob URL
             if (loadRequest.contents) {
-                const blob = loadRequest.contents instanceof File ? 
-                    loadRequest.contents : 
+                const blob = loadRequest.contents instanceof File ?
+                    loadRequest.contents :
                     new Blob([loadRequest.contents]);
                 const blobUrl = URL.createObjectURL(blob);
                 asset.file = {
@@ -123,7 +130,7 @@ class AssetLoader {
 
                         // 创建GltfModel实例
                         const gltfModel = new GltfModel(asset, entity, loadRequest.filename);
-                        
+
                         resolve(gltfModel);
                     } catch (error) {
                         reject(error);
