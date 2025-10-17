@@ -52,6 +52,9 @@ class AssetLoader {
             } else if (filename.endsWith('.lcc')) {
                 asset = wrap(await loadLcc(loadRequest));
                 orientation = lccOrientation;
+            } else if (filename.endsWith('.gltf') || filename.endsWith('.glb')) {
+                // GLB/GLTF文件应该使用loadModel方法，而不是load方法
+                throw new Error('GLB/GLTF文件应该使用loadModel方法加载，而不是load方法');
             } else {
                 asset = await loadPly(this.app.assets, loadRequest);
             }
@@ -104,7 +107,8 @@ class AssetLoader {
             return new Promise((resolve, reject) => {
                 asset.ready(() => {
                     try {
-                        const containerResource = asset.resource;
+                        // 获取容器资源并进行类型断言
+                        const containerResource = asset.resource as any;
                         if (!containerResource) {
                             reject(new Error('模型资源加载失败'));
                             return;

@@ -101,6 +101,7 @@ class Scene {
         this.app.autoRender = false;
         // @ts-ignore
         this.app._allowResize = false;
+        // 禁用集群光照以避免渲染错误
         this.app.scene.clusteredLightingEnabled = false;
 
         // 临时方案：禁用光照映射器的首次烘焙，直到我们提供相关选项
@@ -236,6 +237,32 @@ class Scene {
         this.add(this.outline);
         this.underlay = new Underlay();
         this.add(this.underlay);
+
+        // 添加场景光照以支持GLB模型渲染
+        this.setupSceneLighting();
+    }
+
+    // 设置场景光照
+    private setupSceneLighting() {
+        // 设置环境光，提供基础照明
+        this.app.scene.ambientLight.set(0.4, 0.4, 0.5);
+        
+        // 添加一个主方向光，模拟太阳光
+        const lightEntity = new Entity('DirectionalLight');
+        lightEntity.addComponent('light', {
+            type: 'directional',
+            color: new Color(1.0, 0.95, 0.8), // 暖白色
+            intensity: 1.2,
+            castShadows: false, // 暂时禁用阴影避免渲染问题
+            shadowDistance: 50,
+            shadowResolution: 1024
+        });
+        
+        // 设置光源方向（从右上方照射）
+        lightEntity.setEulerAngles(45, 30, 0);
+        
+        // 将光源添加到场景
+        this.app.root.addChild(lightEntity);
     }
 
     start() {

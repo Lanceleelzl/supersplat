@@ -64,13 +64,6 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
             'model/gltf-binary': ['.glb']
         }
     },
-    'lcc': {
-        description: 'LCC Scene',
-        accept: {
-            'application/json': ['.lcc'],
-            'application/octet-stream': ['.bin']
-        }
-    },
     'htmlViewer': {
         description: 'Viewer HTML',
         accept: {
@@ -180,12 +173,27 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // import a single file, .ply, .splat or meta.json
     const importFile = async (file: ImportFile, animationFrame: boolean) => {
         try {
-            const model = await scene.assetLoader.load({
-                contents: file.contents,
-                filename: file.filename,
-                url: file.url,
-                animationFrame
-            });
+            const filename = file.filename.toLowerCase();
+            let model;
+            
+            // 对GLB/GLTF文件使用loadModel方法
+            if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
+                model = await scene.assetLoader.loadModel({
+                    contents: file.contents,
+                    filename: file.filename,
+                    url: file.url,
+                    animationFrame
+                });
+            } else {
+                // 对其他文件格式使用原有的load方法
+                model = await scene.assetLoader.load({
+                    contents: file.contents,
+                    filename: file.filename,
+                    url: file.url,
+                    animationFrame
+                });
+            }
+            
             scene.add(model);
             return model;
         } catch (error) {
@@ -311,13 +319,10 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-<<<<<<< HEAD
         fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
         fileSelector.setAttribute('multiple', 'true');
 
-
         fileSelector.onchange = () => {
-
             const files = [];
             for (let i = 0; i < fileSelector.files.length; i++) {
                 const file = fileSelector.files[i];

@@ -164,8 +164,8 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             // 创建新的名称，使用中文"_复制"
             const copyName = originalName ? `${originalName}_复制` : '高斯泼溅_复制';
 
-            // 创建新的Splat实例
-            const duplicatedSplat = new Splat(originalSplat.asset);
+            // 创建新的Splat实例，使用默认方向
+            const duplicatedSplat = new Splat(originalSplat.asset, new Vec3(0, 0, 0));
 
             if (duplicatedSplat) {
                 // 设置新名称
@@ -631,7 +631,17 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     });
 
     events.on('select.delete', () => {
-        selectedSplats().forEach((splat) => {
+        console.log('Delete event triggered');
+        const splats = selectedSplats();
+        console.log('Selected splats:', splats.length, splats);
+        
+        if (splats.length === 0) {
+            console.log('No splats selected for deletion');
+            return;
+        }
+        
+        splats.forEach((splat) => {
+            console.log('Deleting splat:', splat.name, 'numSelected:', splat.numSelected);
             editHistory.add(new DeleteSelectionOp(splat));
         });
     });
