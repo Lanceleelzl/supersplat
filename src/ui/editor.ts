@@ -29,6 +29,10 @@ import { ViewCube } from './view-cube';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
 
+const removeExtension = (filename: string) => {
+    return filename.substring(0, filename.length - path.getExtension(filename).length);
+};
+
 // 编辑器UI主类，负责管理整个用户界面
 class EditorUI {
     appContainer: Container;     // 应用容器
