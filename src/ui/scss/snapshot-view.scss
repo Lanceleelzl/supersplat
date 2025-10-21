@@ -66,19 +66,36 @@
 }
 
 .snapshot-close {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     background: transparent;
     border: none;
-    color: #aaa;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
     transition: all 0.2s ease;
+
+    // SVG图标样式
+    svg {
+        width: 16px;
+        height: 16px;
+        transition: all 0.2s ease;
+
+        path {
+            fill: #aaa;
+        }
+    }
 
     &:hover {
         background: rgba(255, 255, 255, 0.1);
-        color: #fff;
+
+        svg path {
+            fill: #fff;
+        }
     }
 
     &:active {
