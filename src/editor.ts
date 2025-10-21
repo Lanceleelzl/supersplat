@@ -634,12 +634,12 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         console.log('Delete event triggered');
         const splats = selectedSplats();
         console.log('Selected splats:', splats.length, splats);
-        
+
         if (splats.length === 0) {
             console.log('No splats selected for deletion');
             return;
         }
-        
+
         splats.forEach((splat) => {
             console.log('Deleting splat:', splat.name, 'numSelected:', splat.numSelected);
             editHistory.add(new DeleteSelectionOp(splat));
@@ -1041,6 +1041,10 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 // 保持模型原始大小，不进行缩放
                 model.entity.setLocalScale(1, 1, 1);
                 console.log('保持模型原始大小');
+
+                // 设置模型朝向为-Z方向（绕Y轴旋转180度）
+                model.entity.setEulerAngles(0, 180, 0);
+                console.log('设置巡检模型朝向为-Z方向');
 
                 // 设置模型为巡检点的子模型
                 if (model instanceof GltfModel) {

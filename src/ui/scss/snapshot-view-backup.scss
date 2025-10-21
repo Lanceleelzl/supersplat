@@ -1,0 +1,143 @@
+@use 'colors.scss' as *;
+
+.snapshot-window {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 320px;
+    height: 240px;
+    background-color: $bcg-primary;
+    border: 1px solid $bcg-darker;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+
+    &.visible {
+        display: block;
+    }
+}
+
+.snapshot-title-bar {
+    background-color: $bcg-darker;
+    padding: 6px 8px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+}
+
+.snapshot-title {
+    color: $text-primary;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.snapshot-close-btn {
+    background: none;
+    border: none;
+    color: $text-primary;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+}
+
+.snapshot-content {
+    padding: 8px;
+    height: calc(100% - 40px);
+    overflow-y: auto;
+
+    .snapshot-section {
+        margin-bottom: 12px;
+
+        .snapshot-section-title {
+            font-weight: bold;
+            font-size: 12px;
+            color: $text-primary;
+            margin-bottom: 6px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid $bcg-darker;
+        }
+
+        .snapshot-section-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0px; // 与变换区域保持一致
+
+            // 严格使用与变换区域完全相同的样式
+            .transform-row {
+                height: 32px; // 与变换区域一致
+                line-height: 32px;
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                flex-grow: 1;
+                align-items: center;
+            }
+
+            .transform-label {
+                width: 70px;
+                flex-shrink: 0;
+                flex-grow: 0;
+                margin: 0px; // 与变换区域一致
+                color: #b3b3b3;
+                font-size: 12px; // 恢复与变换区域一致的字体大小
+                white-space: nowrap;
+                text-align: left;
+                overflow: hidden;
+            }
+
+            .transform-expand {
+                flex-grow: 1;
+
+                // 为NumericInput添加与VectorInput相同的margin和结构
+                &.pcui-numeric-input {
+                    margin: 0px;
+                    margin-left: 6px;
+                    margin-right: 6px;
+                    height: 22px;
+                    line-height: 22px;
+
+                    // input元素样式
+                    > input {
+                        padding: 0px;
+                        margin: 0px 0px 0px 4px;
+                        height: 22px;
+                        width: 100%;
+                        box-sizing: border-box;
+                        text-align: left;
+                    }
+
+                    // slider控件样式（如果存在）
+                    > .pcui-numeric-input-slider-control {
+                        // 确保slider控件与input垂直居中对齐
+                        display: flex;
+                        align-items: center;
+                        height: 22px;
+                        
+                        &::after {
+                            top: -6px; // 与settings-dialog保持一致
+                        }
+                    }
+                }
+            }
+
+    // 移除重复的pcui-numeric-input样式定义，使用上面的统一样式
+
+                // 移除通用input样式，使用上面NumericInput内的input样式
+            }
+        }
+    }
+}

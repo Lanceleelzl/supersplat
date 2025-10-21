@@ -13,6 +13,7 @@ import {
 
 import { AssetLoader } from './asset-loader';
 import { Camera } from './camera';
+import { CameraFrustumVisualizer } from './camera-frustum-visualizer';
 import { DataProcessor } from './data-processor';
 import { Element, ElementType, ElementTypeList } from './element';
 import { Events } from './events';
@@ -55,6 +56,7 @@ class Scene {
     dataProcessor: DataProcessor;
     assetLoader: AssetLoader;
     camera: Camera;
+    cameraFrustumVisualizer: CameraFrustumVisualizer;
     splatOverlay: SplatOverlay;
     grid: Grid;
     outline: Outline;
@@ -226,6 +228,9 @@ class Scene {
         // create elements
         this.camera = new Camera();
         this.add(this.camera);
+
+        this.cameraFrustumVisualizer = new CameraFrustumVisualizer();
+        this.add(this.cameraFrustumVisualizer);
 
         this.splatOverlay = new SplatOverlay();
         this.add(this.splatOverlay);

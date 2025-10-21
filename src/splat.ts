@@ -407,7 +407,9 @@ class Splat extends Element {
         // this workaround can be removed once https://github.com/playcanvas/engine/pull/7425 is
         // available
         const rt = this.scene.camera.entity.camera.renderTarget;
-        this.entity.gsplat.instance.meshInstance.setParameter('viewport', [rt.width, rt.height]);
+        if (rt) {
+            this.entity.gsplat.instance.meshInstance.setParameter('viewport', [rt.width, rt.height]);
+        }
     }
 
     focalPoint() {
