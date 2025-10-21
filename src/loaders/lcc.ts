@@ -348,7 +348,7 @@ const loadLcc = async (assetSource: AssetSource) => {
     const text = await fetchText(assetSource);
     const meta = JSON.parse(text);
 
-    const isHasSH: boolean =  meta.fileType === 'Quality' || !!(loadRequest.mapFile('shcoef.bin'));
+    const isHasSH: boolean =  meta.fileType === 'Quality' || !!(assetSource.mapFile && assetSource.mapFile('shcoef.bin'));
     const compressInfo: CompressInfo = parseMeta(meta);
     const splats: number[] = meta.splats;
 

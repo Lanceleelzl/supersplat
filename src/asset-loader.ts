@@ -2,6 +2,8 @@ import { AppBase, Asset, GSplatData, GSplatResource, Vec3 } from 'playcanvas';
 
 import { Events } from './events';
 import { GltfModel } from './gltf-model';
+import { AssetSource } from './loaders/asset-source';
+import { loadGsplat } from './loaders/gsplat';
 import { loadLcc } from './loaders/lcc';
 import { loadSplat } from './loaders/splat';
 import { Splat } from './splat';
@@ -66,7 +68,7 @@ class AssetLoader {
     }
 
     // GLB/GLTF模型加载方法
-    async loadModel(loadRequest: ModelLoadRequest): Promise<GltfModel> {
+    async loadModel(loadRequest: AssetSource): Promise<GltfModel> {
         if (!loadRequest.animationFrame) {
             this.events.fire('startSpinner');
         }
