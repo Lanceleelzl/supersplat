@@ -3,6 +3,7 @@ import { Vec3 } from 'playcanvas';
 import { CreateDropHandler } from './drop-handler';
 import { ElementType } from './element';
 import { Events } from './events';
+import { AssetSource } from './loaders/asset-source';
 import { Scene } from './scene';
 import { DownloadWriter, FileStreamWriter } from './serialize/writer';
 import { Splat } from './splat';
@@ -237,7 +238,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     const importLcc = async (files: ImportFile[], animationFrame: boolean) => {
         try {
             const meta = files.findIndex(f => f.filename.toLowerCase().endsWith('.lcc'));
-            const mapFile = (name: string) => {
+
+            const mapFile = (name: string): AssetSource | null => {
                 const lowerName = name.toLowerCase();
                 // 首先尝试精确匹配（区分大小写）
                 let idx = files.findIndex(f => f.filename === name);
@@ -262,6 +264,11 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filename: files[idx].filename,
                         contents: files[idx].contents
                     };
+                } else if (files[meta].url) {
+                    return {
+                        filename: name,
+                        url: new URL(name, files[meta].url).toString()
+                    };
                 }
                 // 调试信息：列出所有可用文件
                 console.warn(`Failed to find file: ${name}. Available files:`, files.map(f => f.filename));
@@ -270,6 +277,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
 
             const model = await scene.assetLoader.load({
                 filename: files[meta].filename,
+                url: files[meta].url,
                 contents: files[meta].contents,
                 animationFrame,
                 mapFile
