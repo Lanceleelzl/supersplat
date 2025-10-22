@@ -85,11 +85,13 @@ class SnapshotView extends Container {
         // 创建关闭按钮并添加SVG图标
         const closeContainer = this.dom.querySelector('.snapshot-close-container') as HTMLElement;
         const closeButton = new Element({
-            class: 'snapshot-close'
+            class: 'snapshot-close-btn'
         });
+        closeButton.dom.setAttribute('role', 'button');
+        closeButton.dom.setAttribute('tabindex', '0');
         closeButton.dom.appendChild(createSvg(closeSvg));
         closeContainer.appendChild(closeButton.dom);
-
+        
         // 获取canvas元素
         this.canvas = this.dom.querySelector('.snapshot-canvas') as HTMLCanvasElement;
 
