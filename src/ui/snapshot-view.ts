@@ -11,9 +11,9 @@ import {
     Quat
 } from 'playcanvas';
 
+import { ElementType } from '../element';
 import { Events } from '../events';
 import { Scene } from '../scene';
-import { ElementType } from '../element';
 import closeSvg from './svg/close_01.svg';
 
 const createSvg = (svgString: string) => {
@@ -92,7 +92,7 @@ class SnapshotView extends Container {
         closeButton.dom.setAttribute('tabindex', '0');
         closeButton.dom.appendChild(createSvg(closeSvg));
         closeContainer.appendChild(closeButton.dom);
-        
+
         // 获取canvas元素
         this.canvas = this.dom.querySelector('.snapshot-canvas') as HTMLCanvasElement;
 
@@ -310,10 +310,10 @@ class SnapshotView extends Container {
             horizontalFov: true         // 水平视野角
         });
 
-        // 设置相机初始朝向为-z方向，与巡检模型朝向一致
-        // PlayCanvas相机默认朝向-z，巡检模型现在也朝向-z（通过Y轴旋转180度实现）
-        // 不进行任何旋转，保持相机默认朝向-z，远裁剪面在xoy平面上
-        // 这样相机朝向和远裁剪面都与巡检模型坐标系一致
+        // 设置相机初始朝向为+Y方向，与巡检模型朝向一致
+        // PlayCanvas相机默认从-Z看向+Z，通过绕X轴旋转+90度让相机朝向+Y方向
+        // 这样快照预览相机就与巡检模型的朝向保持一致
+        this.snapshotCamera.setEulerAngles(90, 0, 0);
 
         // 设置相机的渲染层，包含所有主要层
         this.snapshotCamera.camera.layers = [
@@ -343,7 +343,7 @@ class SnapshotView extends Container {
         this.renderTarget = new RenderTarget({
             colorBuffer: colorBuffer,
             depth: true,
-            flipY: false,
+            flipY: true,        // 设置为true以避免Y轴翻转，确保画面正确显示
             autoResolve: false
         });
 
@@ -423,10 +423,16 @@ class SnapshotView extends Container {
             console.log('巡检模型位置:', position.x, position.y, position.z);
             console.log('巡检模型旋转:', rotation.x, rotation.y, rotation.z, rotation.w);
 
-            // 直接使用巡检模型的位置和旋转
-            // 相机和模型都朝向-z方向，远裁剪面在xoy平面上
+            // 设置相机位置与巡检模型相同
             this.snapshotCamera.setPosition(position);
-            this.snapshotCamera.setRotation(rotation);
+
+            // 计算相机的最终旋转：巡检模型旋转 + 相机初始90度X轴旋转
+            // 这样确保快照预览相机始终朝向+Y方向，与巡检模型保持一致
+            const cameraRotation = new Quat();
+            const initialCameraRotation = new Quat().setFromEulerAngles(90, 0, 0);
+            cameraRotation.mul2(rotation, initialCameraRotation);
+
+            this.snapshotCamera.setRotation(cameraRotation);
 
             console.log('快照预览：相机位置已设置为', this.snapshotCamera.getPosition());
             console.log('快照预览：相机旋转已设置为', this.snapshotCamera.getRotation());
@@ -455,22 +461,22 @@ class SnapshotView extends Container {
             const splatViewportBackup = new Map<any, any>();
             const splats = this.scene.getElementsByType(ElementType.splat);
             splats.forEach((splat: any) => {
-              try {
-                const instance = splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance;
-                const meshInstance = instance && instance.meshInstance;
-                if (meshInstance) {
-                  const currentViewport = meshInstance.getParameter('viewport');
-                  if (Array.isArray(currentViewport) || (currentViewport && typeof (currentViewport as any).length === 'number')) {
-                    splatViewportBackup.set(splat, Array.from(currentViewport as any));
-                  } else {
-                    splatViewportBackup.set(splat, currentViewport ?? null);
-                  }
-                  // 设置新的视口（示例：全屏覆盖），实际逻辑保持不变
-                  meshInstance.setParameter('viewport', [0, 0, this.renderTarget.width, this.renderTarget.height]);
-                }
-              } catch (err) {
+                try {
+                    const instance = splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance;
+                    const meshInstance = instance && instance.meshInstance;
+                    if (meshInstance) {
+                        const currentViewport = meshInstance.getParameter('viewport');
+                        if (Array.isArray(currentViewport) || (currentViewport && typeof (currentViewport as any).length === 'number')) {
+                            splatViewportBackup.set(splat, Array.from(currentViewport as any));
+                        } else {
+                            splatViewportBackup.set(splat, currentViewport ?? null);
+                        }
+                        // 设置新的视口（示例：全屏覆盖），实际逻辑保持不变
+                        meshInstance.setParameter('viewport', [0, 0, this.renderTarget.width, this.renderTarget.height]);
+                    }
+                } catch (err) {
                 // 忽略单个元素的参数异常，保证主流程不被中断
-              }
+                }
             });
 
             // 设置快照相机的渲染目标

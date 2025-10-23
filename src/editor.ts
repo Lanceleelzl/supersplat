@@ -1042,9 +1042,9 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 model.entity.setLocalScale(1, 1, 1);
                 console.log('保持模型原始大小');
 
-                // 设置模型朝向为-Z方向（绕Y轴旋转180度）
-                model.entity.setEulerAngles(0, 180, 0);
-                console.log('设置巡检模型朝向为-Z方向');
+                // 保持模型自身的初始朝向，不进行额外旋转
+                // model.entity.setEulerAngles(0, 180, 0);
+                console.log('保持巡检模型自身的初始朝向');
 
                 // 设置模型为巡检点的子模型
                 if (model instanceof GltfModel) {
