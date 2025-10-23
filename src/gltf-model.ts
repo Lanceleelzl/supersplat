@@ -483,6 +483,19 @@ class GltfModel extends Element {
 
         const selected = events.invoke('selection') === this;
 
+        // 设置高亮效果
+        if (selected) {
+            // 当模型被选中时，添加到outline层进行高亮显示
+            if (this.scene.outline) {
+                this.scene.outline.addModelToOutlineLayer(this, this.scene.overlayLayer.id);
+            }
+        } else {
+            // 当模型未被选中时，从outline层移除
+            if (this.scene.outline) {
+                this.scene.outline.removeModelFromOutlineLayer(this, this.scene.overlayLayer.id);
+            }
+        }
+
         if (this.visible && selected) {
             // render bounding box when selected
             // 注释：暂时注释掉GLB模型选中时的包围盒显示功能
