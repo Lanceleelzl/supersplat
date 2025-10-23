@@ -232,7 +232,7 @@ class MeasureTool {
 
         const endScale = () => {
             const top = new EntityTransformOp({
-                splat: splat,
+                target: splat,
                 oldt: new Transform(origP, origR, origS),
                 newt: new Transform(splat.entity.getLocalPosition(), splat.entity.getLocalRotation(), splat.entity.getLocalScale())
             });
@@ -377,6 +377,41 @@ class MeasureTool {
         events.on('camera.ortho', updateGizmoSize);
 
         this.activate = () => {
+            // 验证选择集：确保有且仅有一个PLY模型被选中
+            const currentSelection = events.invoke('selection');
+            
+            if (!currentSelection || currentSelection.type !== 'splat') {
+                // 没有选择或选择的不是PLY模型
+                events.invoke('showPopup', {
+                    type: 'info',
+                    header: '测量工具激活失败',
+                    message: '请先选择一个PLY模型（高斯泼溅）才能使用测量工具。\n\n提示：在左侧模型列表中点击一个PLY模型进行选择。'
+                });
+                
+                // 延迟停用工具，确保工具管理器状态正确
+                setTimeout(() => {
+                    events.fire('tool.deactivate');
+                }, 0);
+                return;
+            }
+
+            // 检查选中的PLY模型是否可见和可选择
+            const selectedSplat = currentSelection as Splat;
+            if (!selectedSplat.visible || !selectedSplat.selectable) {
+                events.invoke('showPopup', {
+                    type: 'info',
+                    header: '测量工具激活失败',
+                    message: '选中的PLY模型不可见或不可选择。\n\n请确保模型处于可见和可选择状态。'
+                });
+                
+                // 延迟停用工具，确保工具管理器状态正确
+                setTimeout(() => {
+                    events.fire('tool.deactivate');
+                }, 0);
+                return;
+            }
+
+            // 验证通过，正常激活测量工具
             active = true;
             updateVisuals();
             canvasContainer.dom.addEventListener('pointerdown', pointerdown);

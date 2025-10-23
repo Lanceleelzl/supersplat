@@ -1,5 +1,26 @@
 @use 'colors.scss' as *;
 
+.snapshot-view {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 360px;
+    max-width: calc(100vw - 40px);
+    height: auto;
+    max-height: calc(100vh - 40px);
+    background-color: $bcg-primary;
+    border: 1px solid $bcg-darker;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: block;
+    overflow: auto;
+
+    &.pcui-hidden {
+        display: none;
+    }
+}
+
 .snapshot-window {
     position: fixed;
     top: 50%;

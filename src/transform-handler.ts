@@ -45,7 +45,6 @@ const registerTransformHandlerEvents = (events: Events) => {
         } else if (selection.type === ElementType.splat) {
             const splat = selection as Splat;
             push(splatsTransformHandler);
-            splatsTransformHandler.setSplat(splat);
         } else if (selection.type === ElementType.model) {
             const model = selection as GltfModel;
             push(entityTransformHandler);

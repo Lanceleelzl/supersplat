@@ -1027,17 +1027,12 @@ class Camera extends Element {
             }
         }
 
-<<<<<<< HEAD
-        if (closestSplat) {
-            if (Camera.debugPick) {
-                console.log('高斯模型拾取成功:', closestSplat.filename);
-            }
-
-            this.setFocalPoint(closestP);
-            this.setDistance(closestD / this.sceneRadius * this.fovFactor);
-=======
         if (!closestSplat) {
             return null;
+        }
+
+        if (Camera.debugPick) {
+            console.log('高斯模型拾取成功:', closestSplat.filename);
         }
 
         return {
@@ -1055,7 +1050,6 @@ class Camera extends Element {
 
             this.setFocalPoint(result.position);
             this.setDistance(result.distance / this.sceneRadius * this.fovFactor);
->>>>>>> upstream/main
             scene.events.fire('camera.focalPointPicked', {
                 camera: this,
                 splat: result.splat,
@@ -1067,7 +1061,7 @@ class Camera extends Element {
             }
 
             // 点击空白区域时也触发事件，用于清空选择
-            scene.events.fire('camera.focalPointPicked', {
+            this.scene.events.fire('camera.focalPointPicked', {
                 camera: this,
                 position: new Vec3() // 提供一个默认位置
             });
