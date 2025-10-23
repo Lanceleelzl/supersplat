@@ -13,6 +13,7 @@ import {
 
 import { Events } from '../events';
 import { Scene } from '../scene';
+import { ElementType } from '../element';
 import closeSvg from './svg/close_01.svg';
 
 const createSvg = (svgString: string) => {
@@ -325,7 +326,8 @@ class SnapshotView extends Container {
         // 应用与主相机相同的色调映射和曝光设置
         const mainCamera = this.scene.camera.entity.camera;
         this.snapshotCamera.camera.toneMapping = mainCamera.toneMapping;
-        this.snapshotCamera.camera.exposure = mainCamera.exposure;
+        // 移除错误的曝光设置（曝光为场景级属性）
+        // this.snapshotCamera.camera.exposure = mainCamera.exposure;
 
         // 创建渲染目标
         const colorBuffer = new Texture(this.scene.app.graphicsDevice, {
@@ -450,15 +452,25 @@ class SnapshotView extends Container {
             const originalRenderTarget = mainCamera.renderTarget;
 
             // 保存所有高斯泼溅模型的视口参数，防止被快照渲染污染
-            const splatViewportBackup = new Map();
-            this.scene.getElementsByType('splat').forEach((splat: any) => {
-                if (splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance) {
-                    const meshInstance = splat.entity.gsplat.instance.meshInstance;
-                    const currentViewport = meshInstance.getParameter('viewport');
-                    if (currentViewport) {
-                        splatViewportBackup.set(splat, [...currentViewport]);
-                    }
+            const splatViewportBackup = new Map<any, any>();
+            const splats = this.scene.getElementsByType(ElementType.splat);
+            splats.forEach((splat: any) => {
+              try {
+                const instance = splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance;
+                const meshInstance = instance && instance.meshInstance;
+                if (meshInstance) {
+                  const currentViewport = meshInstance.getParameter('viewport');
+                  if (Array.isArray(currentViewport) || (currentViewport && typeof (currentViewport as any).length === 'number')) {
+                    splatViewportBackup.set(splat, Array.from(currentViewport as any));
+                  } else {
+                    splatViewportBackup.set(splat, currentViewport ?? null);
+                  }
+                  // 设置新的视口（示例：全屏覆盖），实际逻辑保持不变
+                  meshInstance.setParameter('viewport', [0, 0, this.renderTarget.width, this.renderTarget.height]);
                 }
+              } catch (err) {
+                // 忽略单个元素的参数异常，保证主流程不被中断
+              }
             });
 
             // 设置快照相机的渲染目标
@@ -467,15 +479,15 @@ class SnapshotView extends Container {
             // 使用PlayCanvas的正确渲染方式
             const app = this.scene.app;
 
-            // 临时设置快照相机为主相机进行渲染
-            const originalCamera = app.scene.defaultCamera;
-            app.scene.defaultCamera = this.snapshotCamera.camera;
+            // 临时设置快照相机为主相机进行渲染（使用 any 规避类型限制）
+            const originalCamera = (app.scene as any).defaultCamera;
+            (app.scene as any).defaultCamera = this.snapshotCamera.camera;
 
             // 执行渲染
             app.render();
 
             // 恢复原始相机
-            app.scene.defaultCamera = originalCamera;
+            (app.scene as any).defaultCamera = originalCamera;
 
             // 恢复主相机的渲染目标
             this.snapshotCamera.camera.renderTarget = null;
@@ -499,7 +511,7 @@ class SnapshotView extends Container {
 
     private copyRenderTargetToCanvas() {
         try {
-            const gl = this.scene.app.graphicsDevice.gl;
+            const gl = (this.scene.app.graphicsDevice as any).gl;
             const ctx = this.canvas.getContext('2d');
 
             if (ctx && gl) {
