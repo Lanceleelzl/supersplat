@@ -59,13 +59,12 @@ class EntityTransformHandler implements TransformHandler {
     }
 
     placePivot() {
-        // place initial pivot point
         const origin = this.events.invoke('pivot.origin');
 
         if (this.target.type === ElementType.splat) {
             (this.target as Splat).getPivot(origin === 'center' ? 'center' : 'boundCenter', false, transform);
         } else if (this.target.type === ElementType.model) {
-            // For GLB models, use entity position and world bound center
+            // GLB模型的pivot处理
             const model = this.target as GltfModel;
             const bound = model.worldBound;
             if (bound && origin === 'boundCenter') {
@@ -152,6 +151,11 @@ class EntityTransformHandler implements TransformHandler {
 
         this.top = null;
         this.pop = null;
+    }
+
+    setEntity(entity: any) {
+        // 为了兼容官方版本的API，添加setEntity方法
+        // 但我们的实现中target是通过selection事件设置的
     }
 }
 

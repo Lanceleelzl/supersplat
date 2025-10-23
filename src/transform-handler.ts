@@ -12,14 +12,24 @@ interface TransformHandler {
 }
 
 const registerTransformHandlerEvents = (events: Events) => {
-    let transformHandler: TransformHandler = null;
+    const transformHandlers: TransformHandler[] = [];
 
-    const setTransformHandler = (handler: TransformHandler) => {
-        if (transformHandler) {
+    const push = (handler: TransformHandler) => {
+        if (transformHandlers.length > 0) {
+            const transformHandler = transformHandlers[transformHandlers.length - 1];
             transformHandler.deactivate();
         }
-        transformHandler = handler;
-        if (transformHandler) {
+        transformHandlers.push(handler);
+        handler.activate();
+    };
+
+    const pop = () => {
+        if (transformHandlers.length > 0) {
+            const transformHandler = transformHandlers.pop();
+            transformHandler.deactivate();
+        }
+        if (transformHandlers.length > 0) {
+            const transformHandler = transformHandlers[transformHandlers.length - 1];
             transformHandler.activate();
         }
     };
@@ -29,23 +39,30 @@ const registerTransformHandlerEvents = (events: Events) => {
     const splatsTransformHandler = new SplatsTransformHandler(events);
 
     const update = (selection: Splat | GltfModel) => {
+        pop();
         if (!selection) {
-            setTransformHandler(null);
+            // No selection, no transform handler needed
         } else if (selection.type === ElementType.splat) {
             const splat = selection as Splat;
-            if (splat.numSelected > 0) {
-                setTransformHandler(splatsTransformHandler);
-            } else {
-                setTransformHandler(entityTransformHandler);
-            }
+            push(splatsTransformHandler);
+            splatsTransformHandler.setSplat(splat);
         } else if (selection.type === ElementType.model) {
-            // GLB models use entity transform handler
-            setTransformHandler(entityTransformHandler);
+            const model = selection as GltfModel;
+            push(entityTransformHandler);
+            entityTransformHandler.setEntity(model.entity);
         }
     };
 
     events.on('selection.changed', update);
     events.on('splat.stateChanged', update);
+
+    events.on('transformHandler.push', (handler: TransformHandler) => {
+        push(handler);
+    });
+
+    events.on('transformHandler.pop', () => {
+        pop();
+    });
 
     registerPivotEvents(events);
 };
