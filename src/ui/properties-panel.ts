@@ -304,7 +304,7 @@ class PropertiesPanel extends Container {
         this.events.on('selection.changed', (element: any) => {
             // 检查属性预览是否启用
             const attributePreviewEnabled = this.events.invoke('attribute.isEnabled');
-            
+
             if (!attributePreviewEnabled) {
                 // 如果属性预览未启用，隐藏面板
                 this.hideProperties();
@@ -382,7 +382,7 @@ class PropertiesPanel extends Container {
         // 监听属性预览状态变化事件
         this.events.on('attribute.statusChanged', (attributePreviewEnabled: boolean) => {
             console.log('属性预览状态切换:', attributePreviewEnabled);
-            
+
             if (!attributePreviewEnabled) {
                 // 如果属性预览被关闭，隐藏属性面板
                 this.hideProperties();

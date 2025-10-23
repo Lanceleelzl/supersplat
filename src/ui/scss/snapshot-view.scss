@@ -90,8 +90,17 @@
 
 .camera-controls {
         padding: 10px;
-        background-color: #2c2c2c;
+        background-color: $bcg-primary; // 改为与主背景色一致的白色系
         border-top: 1px solid #444;
+
+        // 相机参数标题样式 - 直接在camera-controls下定义
+        h4 {
+            color: $text-primary !important; // 设置为白色，使用!important确保优先级
+            font-size: 12px !important; // 与span标题保持一致的字体大小
+            font-weight: bold !important;
+            margin: 0 0 8px 0 !important; // 减少上边距，只保留下边距
+            padding: 0 !important;
+        }
 
         .control-section {
             display: flex;

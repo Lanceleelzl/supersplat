@@ -96,9 +96,9 @@ class SnapshotView extends Container {
         // 获取canvas元素
         this.canvas = this.dom.querySelector('.snapshot-canvas') as HTMLCanvasElement;
 
-        // 设置canvas样式
+        // 设置canvas样式，确保与相机参数面板宽度一致
         this.canvas.style.display = 'block';
-        this.canvas.style.width = '320px';
+        this.canvas.style.width = '100%';  // 改为100%以匹配容器宽度
         this.canvas.style.height = '240px';
         this.canvas.style.border = '1px solid #555';
         this.canvas.style.borderRadius = '4px';
@@ -125,7 +125,7 @@ class SnapshotView extends Container {
         this.fovInput = new NumericInput({
             class: 'transform-expand',
             precision: 1,
-            value: 60,
+            value: 65,                  // 默认水平视场角65°
             min: 10,
             max: 120,
             enabled: true
@@ -147,7 +147,7 @@ class SnapshotView extends Container {
         this.nearInput = new NumericInput({
             class: 'transform-expand',
             precision: 2,
-            value: 0.1,
+            value: 0.6,                 // 默认近裁剪面0.6
             min: 0.01,
             max: 10,
             enabled: true
@@ -169,7 +169,7 @@ class SnapshotView extends Container {
         this.farInput = new NumericInput({
             class: 'transform-expand',
             precision: 0,
-            value: 100,
+            value: 20,                  // 默认远裁剪面20
             min: 10,
             max: 1000,
             enabled: true
@@ -191,7 +191,7 @@ class SnapshotView extends Container {
         this.focalInput = new NumericInput({
             class: 'transform-expand',
             precision: 0,
-            value: 50,
+            value: 30,                  // 默认等效焦距30mm
             min: 10,
             max: 200,
             enabled: true
@@ -300,11 +300,11 @@ class SnapshotView extends Container {
         // 创建独立的相机实体用于快照预览
         this.snapshotCamera = new Entity('SnapshotCamera');
 
-        // 添加相机组件，使用与主相机相同的配置
+        // 添加相机组件，使用新的相机参数配置
         this.snapshotCamera.addComponent('camera', {
-            fov: 60,                    // 默认60度视野角
-            nearClip: 0.1,             // 默认近裁剪面0.1
-            farClip: 100,             // 默认远裁剪面100
+            fov: 65,                    // 水平视场角65°
+            nearClip: 0.6,             // 近裁剪面0.6
+            farClip: 20,               // 远裁剪面20
             clearColor: [0.4, 0.4, 0.4, 1.0],  // 与主场景相同的背景色
             projection: 0,              // 透视投影
             horizontalFov: true         // 水平视野角
@@ -608,14 +608,17 @@ class SnapshotView extends Container {
 
         // 焦距控制（通过调整FOV实现）
         this.focalInput.on('change', (focalLength: number) => {
-            // 将焦距转换为FOV（假设35mm传感器）
-            const sensorSize = 35; // 35mm传感器
-            const fov = 2 * Math.atan(sensorSize / (2 * focalLength)) * (180 / Math.PI);
+            // 将焦距转换为水平FOV
+            // 根据30mm焦距对应65°水平FOV反推传感器宽度
+            // 65° = 2 * arctan(sensorWidth / (2 * 30))
+            // 传感器宽度 ≈ 38.4mm（为了精确匹配65°@30mm）
+            const sensorWidth = 38.4; 
+            const horizontalFov = 2 * Math.atan(sensorWidth / (2 * focalLength)) * (180 / Math.PI);
 
             if (this.snapshotCamera?.camera) {
-                this.snapshotCamera.camera.fov = fov;
+                this.snapshotCamera.camera.fov = horizontalFov;
                 // 同步更新FOV输入框
-                this.fovInput.value = parseFloat(fov.toFixed(1));
+                this.fovInput.value = parseFloat(horizontalFov.toFixed(1));
                 this.renderSnapshot();
                 this.updateFrustumVisualization();
             }

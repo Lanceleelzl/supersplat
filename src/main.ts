@@ -295,7 +295,7 @@ const main = async () => {
 
     // 快照预览开关状态
     let snapshotPreviewEnabled = false;
-    // 属性预览开关状态
+    // 属性预览开关状态 - 默认关闭
     let attributePreviewEnabled = false;
 
     // 添加获取快照预览状态的事件处理器
@@ -333,12 +333,17 @@ const main = async () => {
         events.fire('attribute.statusChanged', attributePreviewEnabled);
     });
 
+    // 初始化时同步菜单状态
+    setTimeout(() => {
+        editorUI.menu.updateAttributePreviewStatus(attributePreviewEnabled);
+    }, 100);
+
     // 监听marker选择事件
     events.on('marker.selected', (model: any) => {
-        // 只有开启快照预览时才显示窗口
+        // 只有开启快照预览时才显示窗口和视椎体
         if (snapshotPreviewEnabled) {
-            // 快照预览功能暂未实现
-            console.log('快照预览功能暂未实现');
+            console.log('显示快照预览和视椎体:', model);
+            snapshotView.show();
         }
     });
 

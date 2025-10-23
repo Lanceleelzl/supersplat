@@ -45,7 +45,7 @@ class Menu extends Container {
     private snapshotMenuLabel: Label | null = null;
     private inspectionMenuPanel: MenuPanel | null = null;
     private events: Events; // 添加events引用
-    private attributePreviewEnabled = false; // 属性预览状态
+    private attributePreviewEnabled = false; // 属性预览状态 - 默认关闭
     private attributeMenuItem: any = null; // 属性预览菜单项
 
     constructor(events: Events, args = {}) {
@@ -344,6 +344,7 @@ class Menu extends Container {
         // 初始化快照菜单文本显示
         setTimeout(() => {
             this.updateSnapshotMenuText();
+            this.updateAttributeMenuText();
         }, 0);
 
         const options: { dom: HTMLElement, menuPanel: MenuPanel }[] = [{

@@ -297,6 +297,14 @@ class Camera extends Element {
 
         this.fov = config.camera.fov;
 
+        // 设置近远裁剪面参数
+        if (config.camera.nearClip !== undefined) {
+            this.near = config.camera.nearClip;
+        }
+        if (config.camera.farClip !== undefined) {
+            this.far = config.camera.farClip;
+        }
+
         // initial camera position and orientation
         this.setAzimElev(controls.initialAzim, controls.initialElev, 0);
         this.setDistance(controls.initialZoom, 0);

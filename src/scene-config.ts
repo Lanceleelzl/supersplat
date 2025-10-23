@@ -14,12 +14,14 @@ const sceneConfig = {
     camera: {
         pixelScale: 1,
         multisample: false,
-        fov: 65,
+        fov: 65,                    // 水平视场角65°
         exposure: 1.0,
         toneMapping: 'linear',
         debugRender: '',
         overlay: true,
-        highPrecision: true
+        highPrecision: true,
+        nearClip: 0.6,             // 近裁剪面0.6
+        farClip: 20                // 远裁剪面20
     },
     show: {
         grid: true,

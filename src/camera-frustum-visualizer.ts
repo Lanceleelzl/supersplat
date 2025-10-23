@@ -140,6 +140,18 @@ class CameraFrustumVisualizer extends Element {
             });
         }
 
+        // 添加视点到远裁剪面四个角的连线
+        // 获取相机在世界空间中的位置（视点）
+        const cameraPosition = this.targetCamera.getPosition();
+        
+        // 连接视点到远平面的4个角
+        for (let i = 0; i < 4; i++) {
+            this.frustumLines.push({
+                start: cameraPosition.clone(),
+                end: farWorldCorners[i].clone()
+            });
+        }
+
         console.log(`相机视椎体：已更新 ${this.frustumLines.length} 条线段`);
         console.log('近平面角点:', nearWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
         console.log('远平面角点:', farWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
