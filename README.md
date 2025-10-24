@@ -60,39 +60,27 @@ SuperSplat is made possible by our amazing open source community:
 
 ## GLB / glTF 模型点击选中 (Click Selection)
 
-现在在视口中加载的 `.glb` / `.gltf` 模型支持直接单击选择：
-
-- 单击模型：通过射线与模型包围盒 (AABB) 的最近交点进行拾取。
-- 选中后：
-   - 模型会加入高亮描边 (与 Splat 选中一致)。
-   - 会弹出信息弹窗显示模型名称及可见性状态。
-- 若点击空白区域且没有命中模型，将继续使用原有的 Splat 拾取逻辑。
-
-实现要点：
-1. 在 `camera.pickFocalPoint` 中优先做 GLB 包围盒射线检测，命中后立即触发 `camera.focalPointPicked` 事件并返回。
-2. `selection.ts` 监听该事件并在用户交互时触发弹窗。
-3. `outline.ts` 已扩展支持对模型 meshInstances 递归添加高亮层。
-
-如需进一步扩展为精确 Mesh 三角面拾取，可在当前 AABB 粗测后加入网格级 BVH 或逐 meshInstance 射线检测。
+特性说明：
+- 支持对已加载的 `.glb` / `.gltf` 模型进行点击选中与高亮显示。
+- 点击空白区域时自动回退到点云（Splat）拾取逻辑。
+- 选中后显示基本信息（名称、可见性）并与相关 UI 面板联动。
 
 ### 物理射线拾取 (Physics Raycast Picking)
 
-在支持并启用了 PlayCanvas 物理系统 (collision + rigidbody) 的情况下，系统会优先尝试基于刚体系统的射线拾取：
+- 拾取优先级：物理射线 → AABB 包围盒 → 点云 Splat。
+- 性能与通用性权衡：默认采用整体包围盒近似，不做精确网格级拾取。
+## 巡检模块（Inspection）
 
-拾取顺序：
-1. 物理射线 `rigidbody.raycastFirst` 命中带有 `pickable` 标签的实体（由 `GltfModel.setupPhysicsPicking()` 自动添加的盒体）
-2. 若物理未命中或未启用：遍历所有 GLB 的世界包围盒 (AABB) 做最近交点测试
-3. 若仍未命中：基于模型包围盒中心投影到屏幕的距离做近似挑选（像素半径阈值 25px）
-4. 若仍无结果：回退到原有的 Splat 拾取流程
+- 顶部“巡检”菜单：一键添加巡检点，自动命名并定位到当前相机位置。
+- 场景管理器：以层级展示巡检点及其标记，支持显隐、选择、原位复制、删除、重命名。
+- 导出：通过“导出巡检参数”面板一次性导出点位信息、位置坐标、云台参数与快照设置。
+## 视图控制（View Control）
 
-实现细节：
-- `GltfModel` 构造时会尝试调用 `setupPhysicsPicking()` 创建一个名为 `__gltfCollider` 的子实体，添加 box `collision` + `kinematic` `rigidbody`，并打上 `pickable` 标签。
-- `camera.pickFocalPoint` 最前加入对物理系统的安全 `try/catch` 射线检测，命中后直接触发选中事件并终止后续逻辑。
-- 物理不可用（无系统或出错）时自动静默降级为 AABB + fallback。
-- 模型通过 `move()` 方法更新变换时会自动同步 collider 的位置与尺寸（重新计算 worldBound）。
+- 视图模式：支持透视与六向正视图的自由切换。
+- 正视视图：限制旋转，仅允许平移与缩放，便于正交观察与标注。
+- 视图选项：快速调整背景与选中颜色、FoV、SH Bands、点大小、网格/边界显示、相机速度、高精度渲染。
+- 右侧联动：右侧“视图模式”子菜单与“设置”面板保持一致的右侧间距，样式扁平化无阴影。
+## 二次功能开发更新
 
-调试：
-- 可使用事件开启或关闭调试日志（例如：`events.invoke('debug.pick.enable')`）。
-- `GltfModel.debugAabb = true` 可输出包围盒计算细节。
-
-注意：出于性能与通用性，目前物理 collider 采用模型整体包围盒，而非精确网格；若需要细粒度精确拾取，可扩展为多 collider 或引入 BVH。 
+- 右侧视图模式子菜单与“设置”面板保持一致的右侧间距，样式扁平无阴影。
+- 构建阶段过滤第三方库的循环依赖警告（如 mediabunny），清理日志不影响功能与输出。

@@ -98,7 +98,18 @@ const application = {
         BUILD_TYPE !== 'debug' && terser()
     ],
     treeshake: 'smallest',
-    cache: false
+    cache: false,
+    onwarn(warning, warn) {
+        // 抑制 mediabunny 的循环依赖警告，不影响功能
+        const isCircular = warning && warning.code === 'CIRCULAR_DEPENDENCY';
+        const msg = (warning && warning.message) || '';
+        const ids = (warning && warning.ids) || [];
+        const mentionsMediabunny = msg.includes('mediabunny') || (Array.isArray(ids) && ids.some(id => String(id).includes('mediabunny')));
+        if (isCircular && mentionsMediabunny) {
+            return; // 跳过这些警告
+        }
+        warn(warning);
+    }
 };
 
 const serviceWorker = {
@@ -115,10 +126,21 @@ const serviceWorker = {
         // BUILD_TYPE !== 'debug' && terser()
     ],
     treeshake: 'smallest',
-    cache: false
+    cache: false,
+    onwarn(warning, warn) {
+        const isCircular = warning && warning.code === 'CIRCULAR_DEPENDENCY';
+        const msg = (warning && warning.message) || '';
+        const ids = (warning && warning.ids) || [];
+        const mentionsMediabunny = msg.includes('mediabunny') || (Array.isArray(ids) && ids.some(id => String(id).includes('mediabunny')));
+        if (isCircular && mentionsMediabunny) {
+            return;
+        }
+        warn(warning);
+    }
 };
 
 export default [
     application,
     serviceWorker
 ];
+
