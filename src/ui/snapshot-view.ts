@@ -576,11 +576,7 @@ class SnapshotView extends Container {
             // 快照预览开启时打开面板并渲染
             if (snapshotEnabled) {
                 this.show();
-                this.renderSnapshot();
             }
-
-            // 无论快照预览是否开启，都根据全局视椎体开关更新可视化
-            this.updateFrustumVisualization();
         });
 
         // 监听巡检模型变换事件（位置、旋转变化）
@@ -1198,31 +1194,35 @@ class SnapshotView extends Container {
             activeStyle(sixteenNine, aspect === '16:9');
         }
 
-        // 重新渲染与刷新视椎体
-        this.renderSnapshot();
-        this.updateFrustumVisualization();
-        this.updateDerivedFovs();
-        if (this.scene.forceRender !== undefined) {
-            this.scene.forceRender = true;
+        // 重新渲染与刷新视椎体（仅在相机与渲染目标就绪时）
+        if (this.snapshotCamera?.camera && this.renderTarget) {
+            this.renderSnapshot();
+            this.updateFrustumVisualization();
+            this.updateDerivedFovs();
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
+            }
+        } else {
+            // 初始化阶段尚未创建相机/渲染目标，延后刷新以避免报错
+        }
+        }
+
+        destroy() {
+            // 清理资源
+            if (this.snapshotCamera) {
+                this.snapshotCamera.destroy();
+            }
+            if (this.renderTarget) {
+                this.renderTarget.destroy();
+            }
+
+            // 移除DOM元素
+            if (this.dom && this.dom.parentNode) {
+                this.dom.parentNode.removeChild(this.dom);
+            }
+
+            super.destroy();
         }
     }
 
-    destroy() {
-        // 清理资源
-        if (this.snapshotCamera) {
-            this.snapshotCamera.destroy();
-        }
-        if (this.renderTarget) {
-            this.renderTarget.destroy();
-        }
-
-        // 移除DOM元素
-        if (this.dom && this.dom.parentNode) {
-            this.dom.parentNode.removeChild(this.dom);
-        }
-
-        super.destroy();
-    }
-}
-
-export { SnapshotView };
+    export { SnapshotView };

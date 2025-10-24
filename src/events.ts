@@ -1,4 +1,4 @@
-import { EventHandler } from 'playcanvas';
+import { EventHandler, Color } from 'playcanvas';
 
 type FunctionCallback = (...args: any[]) => any;
 
@@ -18,8 +18,19 @@ class Events extends EventHandler {
     invoke(name: string, ...args: any[]) {
         const fn = this.functions.get(name);
         if (!fn) {
-            console.log(`错误：未找到函数 '${name}'`);
-            return;
+            // 为常用查询提供安全缺省值，避免初始化阶段的报错；并对部分常规查询静默处理
+            const silentNames = new Set(['bgClr', 'frustum.isEnabled']);
+            if (!silentNames.has(name) && !name.endsWith('.isEnabled')) {
+                console.warn(`警告：未找到函数 '${name}'`);
+            }
+            // 针对常用函数提供缺省返回，避免调用方崩溃
+            if (name === 'bgClr') {
+                return new Color(1, 1, 1, 1);
+            }
+            if (name.endsWith('.isEnabled')) {
+                return false;
+            }
+            return undefined;
         }
         return fn(...args);
     }

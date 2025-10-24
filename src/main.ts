@@ -230,6 +230,8 @@ const main = async () => {
     setSelectedClr(toColor(sceneConfig.selectedClr));
     setUnselectedClr(toColor(sceneConfig.unselectedClr));
     setLockedClr(toColor(sceneConfig.lockedClr));
+    // 确保主摄像机清屏颜色与当前背景色同步
+    scene.camera.entity.camera.clearColor.copy(bgClr);
 
     // 初始化轮廓选择
     events.fire('view.setOutlineSelection', sceneConfig.show.outlineSelection);
@@ -283,6 +285,12 @@ const main = async () => {
     // 加载异步模型
     scene.start();
 
+    // 在快照视图创建与隐藏之前预注册视椎体状态查询，默认开启
+    let frustumEnabled = true;
+    events.function('frustum.isEnabled', () => {
+        return frustumEnabled;
+    });
+
     // 创建单一的快照窗口（在scene启动后）
     const snapshotView = new SnapshotView(events, scene, editorUI.tooltips);
     editorUI.canvasContainer.append(snapshotView);
@@ -297,23 +305,19 @@ const main = async () => {
     let snapshotPreviewEnabled = false;
     // 属性预览开关状态 - 默认关闭
     let attributePreviewEnabled = false;
-    // 视椎体开关状态 - 默认开启
-    let frustumEnabled = true;
-
+    // 视椎体开关状态 - 默认开启（已在上方声明并预注册）
     // 添加获取快照预览状态的事件处理器
     events.function('snapshot.isEnabled', () => {
         return snapshotPreviewEnabled;
     });
-
     // 添加获取属性预览状态的事件处理器
     events.function('attribute.isEnabled', () => {
         return attributePreviewEnabled;
     });
-
-    // 添加获取视椎体状态的事件处理器
-    events.function('frustum.isEnabled', () => {
-        return frustumEnabled;
-    });
+    // 添加获取视椎体状态的事件处理器（已在上方预注册）
+    // events.function('frustum.isEnabled', () => {
+    //     return frustumEnabled;
+    // });
 
     // 监听快照预览开关切换
     events.on('snapshot.toggle', () => {
