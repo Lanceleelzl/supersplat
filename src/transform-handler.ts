@@ -44,7 +44,12 @@ const registerTransformHandlerEvents = (events: Events) => {
             // No selection, no transform handler needed
         } else if (selection.type === ElementType.splat) {
             const splat = selection as Splat;
-            push(splatsTransformHandler);
+            // 当有点级选择时，使用点级变换处理器；否则对整个Splat实体进行变换
+            if (splat.numSelected > 0) {
+                push(splatsTransformHandler);
+            } else {
+                push(entityTransformHandler);
+            }
         } else if (selection.type === ElementType.model) {
             const model = selection as GltfModel;
             push(entityTransformHandler);

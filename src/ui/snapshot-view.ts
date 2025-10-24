@@ -14,9 +14,9 @@ import {
 import { ElementType } from '../element';
 import { Events } from '../events';
 import { Scene } from '../scene';
+import { localize } from './localization';
 import closeSvg from './svg/close_01.svg';
-import { localize } from './localization'
-import { Tooltips } from './tooltips'
+import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {
     const decodedStr = decodeURIComponent(svgString.substring('data:image/svg+xml,'.length));
@@ -309,7 +309,7 @@ class SnapshotView extends Container {
             this.tooltips.register(unitEqBtn, localize('tooltip.focal-equivalent'), 'top');
             this.tooltips.register(unitRealBtn, localize('tooltip.focal-real'), 'top');
         }
-        
+
         // 新增：传感器宽度输入（mm）
         const sensorRow = new Container({ class: 'transform-row' });
         const sensorLabel = new Label({ class: 'transform-label', text: '传感器宽度(mm)' });
@@ -511,7 +511,7 @@ class SnapshotView extends Container {
     private setupCamera() {
         // 创建独立的相机实体用于快照预览
         this.snapshotCamera = new Entity('SnapshotCamera');
-    
+
         // 添加相机组件，使用新的相机参数配置
         this.snapshotCamera.addComponent('camera', {
             fov: 57.4,                 // 水平视场角（参考4:3）
@@ -521,10 +521,10 @@ class SnapshotView extends Container {
             projection: 0,              // 透视投影
             horizontalFov: true         // 使用水平视野角
         });
-    
+
         // 设置相机初始朝向为+Y方向，与巡检模型的朝向一致
         this.snapshotCamera.setEulerAngles(90, 0, 0);
-    
+
         // 设置相机的渲染层，包含所有主要层
         this.snapshotCamera.camera.layers = [
             this.scene.app.scene.layers.getLayerByName('World').id,
@@ -532,11 +532,11 @@ class SnapshotView extends Container {
             this.scene.shadowLayer.id,
             this.scene.debugLayer.id
         ];
-    
+
         // 应用与主相机相同的色调映射和曝光设置
         const mainCamera = this.scene.camera.entity.camera;
         this.snapshotCamera.camera.toneMapping = mainCamera.toneMapping;
-    
+
         // 创建渲染目标（按当前比例）
         const colorBuffer = new Texture(this.scene.app.graphicsDevice, {
             width: this.snapshotWidth,
@@ -547,20 +547,20 @@ class SnapshotView extends Container {
             addressU: ADDRESS_CLAMP_TO_EDGE,
             addressV: ADDRESS_CLAMP_TO_EDGE
         });
-    
+
         this.renderTarget = new RenderTarget({
             colorBuffer: colorBuffer,
             depth: true,
             flipY: true,
             autoResolve: false
         });
-    
+
         // 设置相机的渲染目标
         this.snapshotCamera.camera.renderTarget = this.renderTarget;
-    
+
         // 将相机添加到场景
         this.scene.app.root.addChild(this.snapshotCamera);
-    
+
         console.log('快照预览：独立相机创建完成，已配置渲染层和光照');
     }
 
@@ -913,7 +913,7 @@ class SnapshotView extends Container {
         // FOV控制（兼容水平/对角锁定）
         this.fovInput.on('change', (value: number) => {
             if (!this.snapshotCamera?.camera) return;
-        
+
             const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
             if (this.lockMode === 'horizontal') {
                 console.log('快照预览：设置水平FOV为', value);
@@ -925,7 +925,7 @@ class SnapshotView extends Container {
                 this.snapshotCamera.camera.fov = hRad * 180 / Math.PI;
             }
             console.log('快照预览：当前相机水平FOV为', this.snapshotCamera.camera.fov);
-        
+
             // 更新焦距显示（按单位模式）
             const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
             const realFocal = this.sensorWidthMm / (2 * Math.tan(hRadNow / 2));
@@ -933,7 +933,7 @@ class SnapshotView extends Container {
             this.suppressFocalChange = true;
             this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1));
             this.suppressFocalChange = false;
-        
+
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
             this.forceRenderSnapshot();
@@ -969,7 +969,7 @@ class SnapshotView extends Container {
             const realFocal = this.unitMode === 'equivalent' ? (focalLength * (this.sensorWidthMm / 36)) : focalLength;
             const hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * realFocal)) * 180 / Math.PI;
             this.snapshotCamera.camera.fov = hDeg;
-        
+
             // 同步更新FOV输入框（依据锁定模式）
             const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
             if (this.lockMode === 'horizontal') {
@@ -979,7 +979,7 @@ class SnapshotView extends Container {
                 const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
                 this.fovInput.value = parseFloat(dDeg.toFixed(1));
             }
-        
+
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
             this.forceRenderSnapshot();
@@ -1185,13 +1185,14 @@ class SnapshotView extends Container {
         // 更新按钮激活态
         if (this.aspectButtons) {
             const { fourThree, sixteenNine } = this.aspectButtons;
-            const activeStyle = (btn: HTMLButtonElement, active: boolean) => {
-                btn.style.background = active ? '#3a78ff' : '';
-                btn.style.color = active ? '#fff' : '';
-                btn.style.border = '1px solid #555';
-                btn.style.borderRadius = '4px';
-                btn.style.padding = '2px 6px';
-                btn.style.cursor = 'pointer';
+            const activeStyle = (btn: Button, active: boolean) => {
+                const el = btn.dom as HTMLButtonElement;
+                el.style.background = active ? '#3a78ff' : '';
+                el.style.color = active ? '#fff' : '';
+                el.style.border = '1px solid #555';
+                el.style.borderRadius = '4px';
+                el.style.padding = '2px 6px';
+                el.style.cursor = 'pointer';
             };
             activeStyle(fourThree, aspect === '4:3');
             activeStyle(sixteenNine, aspect === '16:9');

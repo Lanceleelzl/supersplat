@@ -47,15 +47,8 @@ class EntityTransformHandler implements TransformHandler {
             }
         });
 
-        events.on('camera.focalPointPicked', (details: { splat?: Splat, model?: GltfModel, position: Vec3 }) => {
-            if (this.target && ['move', 'rotate', 'scale'].includes(this.events.invoke('tool.active'))) {
-                const pivot = events.invoke('pivot') as Pivot;
-                const oldt = pivot.transform.clone();
-                const newt = new Transform(details.position, pivot.transform.rotation, pivot.transform.scale);
-                const op = new PlacePivotOp({ pivot, oldt, newt });
-                events.fire('edit.add', op);
-            }
-        });
+        // 移除在模型编辑场景下根据鼠标拾取位置强行重定位 pivot 的逻辑，
+        // 保持把手位置固定于模型实体或其包围盒中心（由 pivot.origin 决定）。
     }
 
     placePivot() {
@@ -76,7 +69,7 @@ class EntityTransformHandler implements TransformHandler {
             transform.scale.copy(model.entity.getLocalScale());
         }
 
-        this.events.fire('pivot.place', transform);
+        this.events.invoke('pivot').place(transform);
     }
 
     activate() {

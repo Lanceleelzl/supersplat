@@ -66,6 +66,13 @@ class SplatsTransformHandler implements TransformHandler {
                 events.fire('edit.add', op);
             }
         });
+
+        // 确保在变换工具激活时，当前选中的splat立即放置并更新pivot
+        events.on('tool.activated', (toolName: string) => {
+            if (this.splat && (toolName === 'move' || toolName === 'rotate' || toolName === 'scale')) {
+                this.placePivot();
+            }
+        });
     }
 
     placePivot() {
@@ -184,4 +191,4 @@ class SplatsTransformHandler implements TransformHandler {
     }
 }
 
-export { SplatsTransformHandler };
+export { SplatsTransformHandler };
