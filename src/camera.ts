@@ -1018,8 +1018,12 @@ class Camera extends Element {
         const result = this.intersect(screenX, screenY);
         if (result && (result as any).splat) {
             const { scene } = this;
-            this.setFocalPoint((result as any).position);
-            this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
+            const splat = (result as any).splat;
+            // 仅在可选状态下才更改相机焦点，避免不可选时自动对齐
+            if (splat?.selectable) {
+                this.setFocalPoint((result as any).position);
+                this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
+            }
             scene.events.fire('camera.focalPointPicked', {
                 camera: this,
                 splat: (result as any).splat,
@@ -1141,3 +1145,4 @@ class Camera extends Element {
 }
 
 export { Camera };
+
