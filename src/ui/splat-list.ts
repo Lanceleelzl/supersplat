@@ -650,6 +650,7 @@ class SplatList extends Container {
                 item.on('duplicateClicked', () => {
                     // Splat模型暂不支持复制功能，可在后续版本中实现
                     console.log('Splat模型复制功能暂未实现');
++                   events.fire('showToast', 'Splat 不支持复制');
                 });
                 item.on('removeClicked', () => {
                     console.log('SplatItem removeClicked 事件被触发，转发到 SplatList');
@@ -885,3 +886,4 @@ class SplatList extends Container {
 }
 
 export { SplatList, SplatItem, CategoryContainer };
+

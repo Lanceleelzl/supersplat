@@ -24,6 +24,7 @@
 @use 'timeline-panel.scss';
 @use 'properties-panel.scss';
 @use 'tool.scss';
+@use 'toast.scss';
 
 * {
     font-size: 12px;
@@ -163,6 +164,7 @@ body {
     padding: 0;
     margin: 0;
     flex-grow: 1;
+    position: relative;
 }
 
 #tools-container {
@@ -254,5 +256,4 @@ body {
     font-family: 'Proxima Nova Bold', 'Helvetica Neue', Arial, Helvetica, sans-serif;
     font-weight: bold;
     font-style: normal;
-}
-
+}

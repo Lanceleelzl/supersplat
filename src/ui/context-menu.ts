@@ -274,9 +274,8 @@ class ContextMenu extends Container {
                 this.duplicateGltfModel(this.currentModel);
                 console.log('GLB模型原位复制请求已发送');
             } else if (this.currentSplat) {
-                console.log('开始原位复制高斯泼溅模型:', this.currentSplat.name);
-                this.duplicateSplatModel(this.currentSplat);
-                console.log('高斯泼溅模型原位复制请求已发送');
+                // Splat 不支持复制：提示并不执行复制
+                this.events.fire('showToast', 'Splat 不支持复制');
             }
         } catch (error) {
             console.error('原位复制失败:', error);

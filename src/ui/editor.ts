@@ -28,6 +28,7 @@ import { VideoSettingsDialog } from './video-settings-dialog';
 import { ViewCube } from './view-cube';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
+import { Toast } from './toast';
 
 const removeExtension = (filename: string) => {
     return filename.substring(0, filename.length - path.getExtension(filename).length);
@@ -345,6 +346,13 @@ class EditorUI {
             progress.hidden = true;
         });
 
+        // toast
+        const toast = new Toast(this.events);
+        canvasContainer.append(toast);
+        events.on('showToast', (msg: string, timeoutMs?: number) => {
+            toast.show(msg, timeoutMs ?? 2000);
+        });
+
         // initialize canvas to correct size before creating graphics device etc
         const pixelRatio = window.devicePixelRatio;
         canvas.width = Math.ceil(canvasContainer.dom.offsetWidth * pixelRatio);
@@ -367,4 +375,4 @@ class EditorUI {
     }
 }
 
-export { EditorUI };
+export { EditorUI };
