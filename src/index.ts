@@ -8,4 +8,14 @@ import { version as appVersion } from '../package.json';
 // print out versions of dependent packages
 // NOTE: add dummy style reference to prevent tree shaking
 
-main();
+// 过滤浏览器扩展的未处理 Promise 拒绝报错
+window.addEventListener('unhandledrejection', (event) => {
+  const reason: any = event.reason;
+  const msg = typeof reason === 'string' ? reason : (reason && reason.message);
+  if (typeof msg === 'string' && msg.includes('The message port closed before a response was received')) {
+    event.preventDefault();
+    console.debug('[silenced] extension message port closed before response');
+  }
+});
+
+main();
