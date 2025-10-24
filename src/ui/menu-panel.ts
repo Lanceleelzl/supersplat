@@ -32,14 +32,24 @@ const arrange = (element: HTMLElement, target: HTMLElement, direction: Direction
 
     const style = element.style;
     switch (direction) {
-        case 'left':
+        case 'left': {
+            // 左侧弹出，底对齐目标元素
+            const menuRect = element.getBoundingClientRect();
+            style.left = `${rect.left - parentRect.left - menuRect.width - padding}px`;
+            style.top = `${rect.bottom - parentRect.top - menuRect.height}px`;
             break;
+        }
         case 'right':
             style.left = `${rect.right - parentRect.left + padding}px`;
             style.top = `${rect.top - parentRect.top}px`;
             break;
-        case 'top':
+        case 'top': {
+            // 顶部弹出，左对齐目标元素
+            const menuRect = element.getBoundingClientRect();
+            style.left = `${rect.left - parentRect.left}px`;
+            style.top = `${rect.top - parentRect.top - menuRect.height - padding}px`;
             break;
+        }
         case 'bottom':
             style.left = `${rect.left - parentRect.left}px`;
             style.top = `${rect.bottom - parentRect.top + padding}px`;
@@ -58,9 +68,20 @@ class MenuPanel extends Container {
     parentPanel: MenuPanel | null = null;
 
     constructor(menuItems: MenuItem[], args = {}) {
+        // 保留调用方传入的类，并确保包含基础类 'menu-panel'
+        const userClass = (args as any).class;
+        let classList: string[] = ['menu-panel'];
+        if (userClass) {
+            if (Array.isArray(userClass)) {
+                classList = Array.from(new Set(['menu-panel', ...userClass]));
+            } else if (typeof userClass === 'string') {
+                classList = ['menu-panel', userClass];
+            }
+        }
+
         args = {
             ...args,
-            class: 'menu-panel',
+            class: classList,
             hidden: true
         };
 

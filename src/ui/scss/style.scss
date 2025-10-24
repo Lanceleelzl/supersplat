@@ -25,6 +25,7 @@
 @use 'properties-panel.scss';
 @use 'tool.scss';
 @use 'toast.scss';
+@use 'view-mode-panel.scss';
 
 * {
     font-size: 12px;
@@ -256,4 +257,4 @@ body {
     font-family: 'Proxima Nova Bold', 'Helvetica Neue', Arial, Helvetica, sans-serif;
     font-weight: bold;
     font-style: normal;
-}
+}

@@ -1,0 +1,106 @@
+@use 'colors.scss' as *;
+
+.view-mode-panel {
+    position: absolute;
+    right: 90px; // 位于右侧工具栏左边
+    top: 50%;
+    width: 120px;
+    transform: translate(0, -50%);
+    padding: 12px 8px;
+    border-radius: 8px;
+    background-color: $bcg-dark;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    .view-mode-title {
+        color: $clr-default;
+        font-size: 12px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
+    .view-mode-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .view-mode-button-wrapper {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .view-mode-button {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background-color: $bcg-primary;
+        flex-shrink: 0;
+
+        &::before {
+            font-size: 14px !important;
+            line-height: 100%;
+            color: $clr-default;
+        }
+
+        &:hover {
+            background-color: $bcg-lighter;
+            
+            &::before {
+                color: $clr-hilight;
+            }
+        }
+
+        &.active {
+            background-color: $clr-hilight;
+            
+            &::before {
+                color: $clr-active;
+            }
+
+            // 添加勾选标记
+            &::after {
+                content: '✓';
+                position: absolute;
+                right: 2px;
+                top: 2px;
+                font-size: 10px;
+                color: $clr-active;
+                font-weight: bold;
+            }
+        }
+    }
+
+    .view-mode-label {
+        color: $clr-default;
+        font-size: 12px;
+        flex-grow: 1;
+        text-align: left;
+    }
+
+    // 透视模式特殊样式
+    #view-mode-perspective.active {
+        .view-mode-label {
+            color: $clr-hilight;
+            font-weight: bold;
+        }
+    }
+
+    // 正视模式特殊样式
+    .view-mode-button:not(#view-mode-perspective).active {
+        + .view-mode-label {
+            color: $clr-hilight;
+            font-weight: bold;
+        }
+    }
+}

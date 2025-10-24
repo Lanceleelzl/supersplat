@@ -406,6 +406,11 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         scene.camera.setPose(new Vec3(x * zoom, y * zoom, z * zoom), new Vec3(0, 0, 0));
     });
 
+    // 新增：切回透视投影
+    events.on('camera.setPerspective', () => {
+        scene.camera.ortho = false;
+    });
+
     // 处理相机对齐事件
     events.on('camera.align', (axis: string) => {
         switch (axis) {

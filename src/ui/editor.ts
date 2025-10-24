@@ -27,6 +27,7 @@ import { Toast } from './toast';
 import { Tooltips } from './tooltips';
 import { VideoSettingsDialog } from './video-settings-dialog';
 import { ViewCube } from './view-cube';
+import { ViewModeManager } from './view-mode-manager';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
 
@@ -131,6 +132,9 @@ class EditorUI {
         const bottomToolbar = new BottomToolbar(events, tooltips);
         const rightToolbar = new RightToolbar(events, tooltips);
         const modeToggle = new ModeToggle(events, tooltips);
+
+        // view mode manager
+        const viewModeManager = new ViewModeManager(events);
         this.menu = new Menu(events);
 
         canvasContainer.dom.appendChild(canvas);

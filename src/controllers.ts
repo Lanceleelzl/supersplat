@@ -17,12 +17,28 @@ class PointerController {
     constructor(camera: Camera, target: HTMLElement) {
 
         const orbit = (dx: number, dy: number) => {
-            const azim = camera.azim - dx * camera.scene.config.controls.orbitSensitivity;
-            const elev = camera.elevation - dy * camera.scene.config.controls.orbitSensitivity;
+            // 检查是否允许旋转操作
+            const orbitData = { dx, dy };
+            camera.scene.events.fire('camera.beforeOrbit', orbitData);
+            
+            // 如果dx/dy被修改为0，则不执行旋转
+            if (orbitData.dx === 0 && orbitData.dy === 0) {
+                return;
+            }
+            
+            const azim = camera.azim - orbitData.dx * camera.scene.config.controls.orbitSensitivity;
+            const elev = camera.elevation - orbitData.dy * camera.scene.config.controls.orbitSensitivity;
             camera.setAzimElev(azim, elev);
         };
 
         const pan = (x: number, y: number, dx: number, dy: number) => {
+            // 检查是否允许平移操作
+            const panData = { x, y, dx, dy, allowed: true };
+            camera.scene.events.fire('camera.beforePan', panData);
+            if (!panData.allowed) {
+                return;
+            }
+            
             // For panning to work at any zoom level, we use screen point to world projection
             // to work out how far we need to pan the pivotEntity in world space
             const c = camera.entity.camera;
@@ -38,7 +54,14 @@ class PointerController {
         };
 
         const zoom = (amount: number) => {
-            camera.setDistance(camera.distance - (camera.distance * 0.999 + 0.001) * amount * camera.scene.config.controls.zoomSensitivity, 2);
+            // 检查是否允许缩放操作
+            const zoomData = { amount, allowed: true };
+            camera.scene.events.fire('camera.beforeZoom', zoomData);
+            if (!zoomData.allowed) {
+                return;
+            }
+            
+            camera.setDistance(camera.distance - (camera.distance * 0.999 + 0.001) * zoomData.amount * camera.scene.config.controls.zoomSensitivity, 2);
         };
 
         // mouse state

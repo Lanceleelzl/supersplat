@@ -4,7 +4,7 @@
     position: absolute;
     z-index: 2000; // 确保菜单面板在所有其他面板之上
 
-    &::not(.pcui-hidden) {
+    &:not(.pcui-hidden) {
         display: flex;
     }
     flex-direction: column;
@@ -13,10 +13,35 @@
     overflow: hidden;
 
     background-color: $bcg-dark;
+    // 默认使用阴影（保持左侧主菜单的视觉）
     filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.8));
-
     // the following is needed to get drop-shadow working on safari
     will-change: transform;
+}
+
+// 右侧工具栏扁平化样式：移除阴影
+.menu-panel.menu-panel--flat {
+    filter: none !important;
+    box-shadow: none !important;
+}
+
+// 紧凑样式：用于视图控制菜单
+.menu-panel.menu-panel--compact {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+}
+
+.menu-panel.menu-panel--compact .menu-row {
+    width: 100px !important;
+    min-width: 100px !important; // 强制覆盖默认 180px
+    box-sizing: border-box;
+}
+
+.menu-panel.menu-panel--compact .menu-row-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
 }
 
 .menu-row {
@@ -62,6 +87,16 @@
         svg {
             color: $text-primary;
             
+            path {
+                fill: currentColor;
+            }
+        }
+    }
+
+    // 激活项：仅通过图标颜色区分状态（不使用勾选）
+    &.active {
+        svg {
+            color: $clr-hilight;
             path {
                 fill: currentColor;
             }
