@@ -255,7 +255,6 @@ class InspectionPointContainer extends Container {
         });
 
         remove.dom.addEventListener('click', (event: MouseEvent) => {
-            console.log('删除按钮被点击 - InspectionPointContainer:', this.pointName);
             event.stopPropagation();
             this.emit('removeClicked', this);
         });
@@ -679,22 +678,18 @@ class SplatList extends Container {
 
                         // 绑定巡检点位级别的事件
                         pointContainer.on('duplicateClicked', (pointName: string) => {
-                            console.log('巡检点位原位复制:', pointName);
                             events.fire('inspection.duplicatePoint', pointName);
                         });
 
                         pointContainer.on('removeClicked', (pointName: string) => {
-                            console.log('删除巡检点位:', pointName);
                             events.fire('inspection.deletePoint', pointName);
                         });
 
                         pointContainer.on('visibilityChanged', (pointName: string, visible: boolean) => {
-                            console.log('巡检点位可见性变更:', pointName, visible);
                             events.fire('inspection.togglePointVisibility', pointName, visible);
                         });
 
                         pointContainer.on('selectableChanged', (pointName: string, selectable: boolean) => {
-                            console.log('巡检点位可选性变更:', pointName, selectable);
                             // 设置该巡检点位下所有子模型的可选状态
                             const pointItems = Array.from(items.entries()).filter(([element, item]) => {
                                 const model = element as GltfModel;
@@ -886,4 +881,3 @@ class SplatList extends Container {
 }
 
 export { SplatList, SplatItem, CategoryContainer };
-

@@ -330,18 +330,8 @@ class PropertiesPanel extends Container {
 
         // 监听相机焦点拾取事件（这个事件在每次点击时都会触发，包括点击同一个模型或高斯泼溅）
         this.events.on('camera.focalPointPicked', (details: { splat?: any, model?: GltfModel }) => {
-            console.log('camera.focalPointPicked 事件触发:', details);
-
-            // 检查属性预览是否启用
-            const attributePreviewEnabled = this.events.invoke('attribute.isEnabled');
-            console.log('属性预览启用状态:', attributePreviewEnabled);
-
-            if (!attributePreviewEnabled) {
-                // 如果属性预览未启用，不显示属性面板
-                console.log('属性预览未启用，不显示属性面板');
-                return;
-            }
-
+            // 选中 GLB 模型时显示属性
+            // 移除调试日志：选中GLB模型
             if (details.model && details.model.type === ElementType.model) {
                 // 检查模型是否可选择，不可选择的模型不显示属性面板
                 if (!details.model.selectable) {
@@ -356,41 +346,29 @@ class PropertiesPanel extends Container {
                 this.currentSplat = null;
                 this.showPanel();
                 this.showModelProperties(details.model);
-
             } else if (details.splat && details.splat.type === ElementType.splat) {
                 // 检查高斯泼溅是否可选择，不可选择的不显示属性面板
                 if (!details.splat.selectable) {
-                    console.log('高斯泼溅不可选择，跳过属性面板显示:', details.splat.name);
                     return;
                 }
-
-                console.log('选中高斯模型:', details.splat.filename || details.splat.name);
-
                 // 显示属性面板
                 this.currentSplat = details.splat;
                 this.currentModel = null;
                 this.showPanel();
                 this.showSplatProperties(details.splat);
-
             } else {
                 // 点击空白区域，隐藏属性面板
-                console.log('点击空白区域，隐藏属性面板');
                 this.hideProperties();
             }
         });
 
         // 监听属性预览状态变化事件
         this.events.on('attribute.statusChanged', (attributePreviewEnabled: boolean) => {
-            console.log('属性预览状态切换:', attributePreviewEnabled);
-
             if (!attributePreviewEnabled) {
-                // 如果属性预览被关闭，隐藏属性面板
                 this.hideProperties();
             } else {
-                // 如果属性预览被开启，检查当前是否有选中的元素
                 const currentSelection = this.events.invoke('selection');
                 if (currentSelection) {
-                    console.log('属性预览开启，刷新当前选中元素的属性:', currentSelection);
                     // 重新显示当前选中元素的属性
                     if (currentSelection.type === ElementType.model) {
                         this.currentModel = currentSelection;

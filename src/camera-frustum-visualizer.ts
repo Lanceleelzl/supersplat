@@ -37,7 +37,7 @@ class CameraFrustumVisualizer extends Element {
 
     /**
      * 设置要可视化的目标相机
-     * @param camera 目标相机实体
+     * @param camera - 目标相机实体
      */
     setTargetCamera(camera: Entity | null) {
         this.targetCamera = camera;
@@ -75,7 +75,7 @@ class CameraFrustumVisualizer extends Element {
 
     /**
      * 设置视椎体颜色
-     * @param color 颜色
+     * @param color - 颜色
      */
     setColor(color: Color) {
         this.frustumColor.copy(color);
@@ -92,18 +92,18 @@ class CameraFrustumVisualizer extends Element {
         }
 
         const camera = this.targetCamera.camera;
-        
+
         // 获取视椎体的8个角点
         // PlayCanvas的getFrustumCorners返回近平面和远平面的4个角点
         const nearCorners = camera.camera.getFrustumCorners(camera.nearClip);
         const farCorners = camera.camera.getFrustumCorners(camera.farClip);
-        
+
         // 将角点从相机空间转换到世界空间
         const worldTransform = this.targetCamera.getWorldTransform();
-        
+
         const nearWorldCorners: Vec3[] = [];
         const farWorldCorners: Vec3[] = [];
-        
+
         for (let i = 0; i < 4; i++) {
             const nearWorld = new Vec3();
             const farWorld = new Vec3();
@@ -143,7 +143,7 @@ class CameraFrustumVisualizer extends Element {
         // 添加视点到远裁剪面四个角的连线
         // 获取相机在世界空间中的位置（视点）
         const cameraPosition = this.targetCamera.getPosition();
-        
+
         // 连接视点到远平面的4个角
         for (let i = 0; i < 4; i++) {
             this.frustumLines.push({
@@ -152,9 +152,10 @@ class CameraFrustumVisualizer extends Element {
             });
         }
 
-        console.log(`相机视椎体：已更新 ${this.frustumLines.length} 条线段`);
-        console.log('近平面角点:', nearWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
-        console.log('远平面角点:', farWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
+        // 注释掉调试打印，避免污染控制台
+        // console.log(`相机视椎体：已更新 ${this.frustumLines.length} 条线段`);
+        // console.log('近平面角点:', nearWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
+        // console.log('远平面角点:', farWorldCorners.map(v => `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`));
     }
 
     /**

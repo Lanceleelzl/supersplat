@@ -23,12 +23,12 @@ import { ShortcutsPopup } from './shortcuts-popup';
 import { SnapshotView } from './snapshot-view';
 import { Spinner } from './spinner';
 import { TimelinePanel } from './timeline-panel';
+import { Toast } from './toast';
 import { Tooltips } from './tooltips';
 import { VideoSettingsDialog } from './video-settings-dialog';
 import { ViewCube } from './view-cube';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
-import { Toast } from './toast';
 
 const removeExtension = (filename: string) => {
     return filename.substring(0, filename.length - path.getExtension(filename).length);
@@ -347,7 +347,7 @@ class EditorUI {
         });
 
         // toast
-        const toast = new Toast(this.events);
+        const toast = new Toast();
         canvasContainer.append(toast);
         events.on('showToast', (msg: string, timeoutMs?: number) => {
             toast.show(msg, timeoutMs ?? 2000);

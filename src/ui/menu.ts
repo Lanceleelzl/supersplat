@@ -4,13 +4,16 @@ import { Events } from '../events';
 import { localize } from './localization';
 import { MenuPanel } from './menu-panel';
 import arrowSvg from './svg/arrow.svg';
+import attributeSvg from './svg/attribute.svg';
 import collapseSvg from './svg/collapse.svg';
 import selectDelete from './svg/delete.svg';
 import sceneExport from './svg/export.svg';
 import sceneImport from './svg/import.svg';
+import kuaizhaoSvg from './svg/kuaizhao.svg';
 import sceneNew from './svg/new.svg';
 import sceneOpen from './svg/open.svg';
 import scenePublish from './svg/publish.svg';
+import rectangularVertebraSvg from './svg/rectangularVertebra.svg';
 import sceneSave from './svg/save.svg';
 import selectAll from './svg/select-all.svg';
 import selectDuplicate from './svg/select-duplicate.svg';
@@ -20,13 +23,10 @@ import selectNone from './svg/select-none.svg';
 import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
-import kuaizhaoSvg from './svg/kuaizhao.svg';
-import attributeSvg from './svg/attribute.svg';
-import rectangularVertebraSvg from './svg/rectangularVertebra.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
-    
+
     // 检查是否是data URL格式
     if (svgString.startsWith('data:image/svg+xml,')) {
         svgContent = decodeURIComponent(svgString.substring('data:image/svg+xml,'.length));
@@ -34,7 +34,7 @@ const createSvg = (svgString: string) => {
         // 直接使用SVG字符串内容
         svgContent = svgString;
     }
-    
+
     return new Element({
         dom: new DOMParser().parseFromString(svgContent, 'image/svg+xml').documentElement
     });
@@ -415,54 +415,35 @@ class Menu extends Container {
     }
 
     private updateSnapshotMenuText() {
-        console.log('updateSnapshotMenuText called, snapshotPreviewEnabled:', this.snapshotPreviewEnabled);
-        
         if (this.snapshotMenuItem && this.inspectionMenuPanel) {
             // 更新菜单项的文本，激活时添加√符号
             this.snapshotMenuItem.text = this.snapshotPreviewEnabled ? '快照预览 ✓' : '快照预览';
-            
+
             // 重新构建整个菜单面板以确保正确显示
             this.rebuildInspectionMenu();
-            
-            console.log(this.snapshotPreviewEnabled ? 
-                'Snapshot preview enabled - showing checkmark' : 
-                'Snapshot preview disabled - no checkmark');
         } else {
             console.error('snapshotMenuItem or inspectionMenuPanel is null');
         }
     }
 
     private updateAttributeMenuText() {
-        console.log('updateAttributeMenuText called, attributePreviewEnabled:', this.attributePreviewEnabled);
-        
         if (this.attributeMenuItem && this.inspectionMenuPanel) {
             // 更新菜单项的文本，激活时添加√符号
             this.attributeMenuItem.text = this.attributePreviewEnabled ? '查看属性 ✓' : '查看属性';
-            
+
             // 重新构建整个菜单面板以确保正确显示
             this.rebuildInspectionMenu();
-            
-            console.log(this.attributePreviewEnabled ? 
-                'Attribute preview enabled - showing checkmark' : 
-                'Attribute preview disabled - no checkmark');
         } else {
             console.error('attributeMenuItem or inspectionMenuPanel is null');
         }
     }
 
     private updateFrustumMenuText() {
-        console.log('updateFrustumMenuText called, frustumEnabled:', this.frustumEnabled);
-        
         if (this.frustumMenuItem && this.inspectionMenuPanel) {
             // 更新菜单项的文本，激活时添加√符号
             this.frustumMenuItem.text = this.frustumEnabled ? '视椎体 ✓' : '视椎体';
-            
             // 重新构建整个菜单面板以确保正确显示
             this.rebuildInspectionMenu();
-            
-            console.log(this.frustumEnabled ? 
-                'Frustum enabled - showing checkmark' : 
-                'Frustum disabled - no checkmark');
         } else {
             console.error('frustumMenuItem or inspectionMenuPanel is null');
         }
@@ -474,7 +455,7 @@ class Menu extends Container {
             this.snapshotMenuItem.text = this.snapshotPreviewEnabled ? '快照预览 ✓' : '快照预览';
             this.frustumMenuItem.text = this.frustumEnabled ? '视椎体 ✓' : '视椎体';
             this.attributeMenuItem.text = this.attributePreviewEnabled ? '查看属性 ✓' : '查看属性';
-            
+
             // 直接更新菜单面板中对应菜单项的文本
             const menuRows = this.inspectionMenuPanel.dom.querySelectorAll('.menu-row');
             // 快照预览是第2个菜单项 (index 1)

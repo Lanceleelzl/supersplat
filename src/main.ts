@@ -352,8 +352,6 @@ const main = async () => {
         // 同步菜单显示状态
         editorUI.menu.updateAttributePreviewStatus(attributePreviewEnabled);
 
-        console.log('属性预览状态切换:', attributePreviewEnabled ? '开启' : '关闭');
-
         // 触发属性面板的状态更新事件，使用不同的事件名避免循环
         events.fire('attribute.statusChanged', attributePreviewEnabled);
     });
@@ -369,7 +367,6 @@ const main = async () => {
     events.on('marker.selected', (model: any) => {
         // 只有开启快照预览时才显示窗口和视椎体
         if (snapshotPreviewEnabled) {
-            console.log('显示快照预览和视椎体:', model);
             snapshotView.show();
         }
     });
@@ -386,7 +383,6 @@ const main = async () => {
 
         // 属性预览功能对所有模型都生效，不仅限于巡检模型
         if (data.model && attributePreviewEnabled) {
-            console.log('显示模型属性面板:', data.model);
             // 属性面板的显示逻辑已经在PropertiesPanel中处理
             // 这里不需要额外的处理，因为PropertiesPanel已经监听了camera.focalPointPicked事件
         }

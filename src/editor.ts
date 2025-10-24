@@ -1405,8 +1405,9 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 ...data.params,
                 timestamp: Date.now()
             };
-
-            console.log('巡检点位相机参数已更新:', data.marker.name, markerData.cameraParams);
+        
+            // 移除无关日志输出
+            // 原：console.log('巡检点位相机参数已更新:', data.marker.name, markerData.cameraParams);
         } else {
             console.warn('未找到对应的巡检点位数据:', data.marker.name);
         }
@@ -1417,37 +1418,37 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
 
     // 相机FOV调整事件
     events.on('camera.fov', (fov: number) => {
-        console.log('相机FOV调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机近远裁剪面调整事件
     events.on('camera.clip', (data: { near?: number, far?: number }) => {
-        console.log('相机近远裁剪面调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机光圈调整事件
     events.on('camera.aperture', (aperture: number) => {
-        console.log('相机光圈调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机感光度调整事件
     events.on('camera.sensitivity', (sensitivity: number) => {
-        console.log('相机感光度调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机快门调整事件
     events.on('camera.shutter', (shutter: number) => {
-        console.log('相机快门调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机色调映射调整事件
     events.on('camera.toneMapping', (toneMapping: number) => {
-        console.log('相机色调映射调整功能暂未实现');
+        // 功能暂未实现
     });
 
     // 相机位置和目标调整事件
     events.on('camera.transform', (data: { position?: Vec3, target?: Vec3 }) => {
-        console.log('相机位置和目标调整功能暂未实现');
+        // 功能暂未实现
     });
 };
 

@@ -109,7 +109,7 @@ Excel导出成功！
 请检查下载文件夹中的Excel文件。
         `.trim();
 
-        console.log(message);
+        this.events.fire('toast', message);
     }
 
     // 公共方法：手动触发导出（用于测试）
