@@ -22,6 +22,7 @@ import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
 import kuaizhaoSvg from './svg/kuaizhao.svg';
 import attributeSvg from './svg/attribute.svg';
+import rectangularVertebraSvg from './svg/rectangularVertebra.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -47,6 +48,8 @@ class Menu extends Container {
     private events: Events; // 添加events引用
     private attributePreviewEnabled = false; // 属性预览状态 - 默认关闭
     private attributeMenuItem: any = null; // 属性预览菜单项
+    private frustumEnabled = true; // 视椎体显示状态 - 默认开启
+    private frustumMenuItem: any = null; // 视椎体菜单项
 
     constructor(events: Events, args = {}) {
         args = {
@@ -270,6 +273,16 @@ class Menu extends Container {
             }
         };
 
+        // 创建视椎体菜单项 - 使用rectangularVertebra图标，激活时在文本后添加√
+        this.frustumMenuItem = {
+            text: '视椎体',
+            icon: createSvg(rectangularVertebraSvg),
+            onSelect: () => {
+                // 只触发事件，由main.ts统一管理状态与回显
+                events.fire('frustum.toggle');
+            }
+        };
+
         // 创建查看属性菜单项 - 使用attribute图标，激活时在文本后添加√
         this.attributeMenuItem = {
             text: '查看属性',
@@ -286,6 +299,7 @@ class Menu extends Container {
             onSelect: () => events.fire('inspection.addPoint')
         },
         this.snapshotMenuItem,
+        this.frustumMenuItem,
         this.attributeMenuItem,
         {
             text: '导出巡检参数',
@@ -345,6 +359,7 @@ class Menu extends Container {
         setTimeout(() => {
             this.updateSnapshotMenuText();
             this.updateAttributeMenuText();
+            this.updateFrustumMenuText();
         }, 0);
 
         const options: { dom: HTMLElement, menuPanel: MenuPanel }[] = [{
@@ -435,11 +450,29 @@ class Menu extends Container {
         }
     }
 
+    private updateFrustumMenuText() {
+        console.log('updateFrustumMenuText called, frustumEnabled:', this.frustumEnabled);
+        
+        if (this.frustumMenuItem && this.inspectionMenuPanel) {
+            // 更新菜单项的文本，激活时添加√符号
+            this.frustumMenuItem.text = this.frustumEnabled ? '视椎体 ✓' : '视椎体';
+            
+            // 重新构建整个菜单面板以确保正确显示
+            this.rebuildInspectionMenu();
+            
+            console.log(this.frustumEnabled ? 
+                'Frustum enabled - showing checkmark' : 
+                'Frustum disabled - no checkmark');
+        } else {
+            console.error('frustumMenuItem or inspectionMenuPanel is null');
+        }
+    }
+
     private rebuildInspectionMenu() {
-        if (this.inspectionMenuPanel && this.snapshotMenuItem && this.attributeMenuItem) {
-            // 更新快照菜单项的文本，激活时添加√符号
+        if (this.inspectionMenuPanel && this.snapshotMenuItem && this.attributeMenuItem && this.frustumMenuItem) {
+            // 更新三个菜单项的文本
             this.snapshotMenuItem.text = this.snapshotPreviewEnabled ? '快照预览 ✓' : '快照预览';
-            // 更新属性菜单项的文本，激活时添加√符号
+            this.frustumMenuItem.text = this.frustumEnabled ? '视椎体 ✓' : '视椎体';
             this.attributeMenuItem.text = this.attributePreviewEnabled ? '查看属性 ✓' : '查看属性';
             
             // 直接更新菜单面板中对应菜单项的文本
@@ -451,9 +484,16 @@ class Menu extends Container {
                     textLabel.textContent = this.snapshotMenuItem.text;
                 }
             }
-            // 查看属性是第3个菜单项 (index 2)
+            // 视椎体是第3个菜单项 (index 2)
             if (menuRows[2]) {
                 const textLabel = menuRows[2].querySelector('.menu-row-text');
+                if (textLabel) {
+                    textLabel.textContent = this.frustumMenuItem.text;
+                }
+            }
+            // 查看属性是第4个菜单项 (index 3)
+            if (menuRows[3]) {
+                const textLabel = menuRows[3].querySelector('.menu-row-text');
                 if (textLabel) {
                     textLabel.textContent = this.attributeMenuItem.text;
                 }
@@ -465,6 +505,8 @@ class Menu extends Container {
     private updateMenuItemDisplay() {
         // 更新快照菜单项的图标
         this.updateSnapshotMenuText();
+        // 更新视椎体菜单项的图标
+        this.updateFrustumMenuText();
         // 更新属性菜单项的图标
         this.updateAttributeMenuText();
     }
@@ -479,6 +521,12 @@ class Menu extends Container {
     public updateAttributePreviewStatus(enabled: boolean) {
         this.attributePreviewEnabled = enabled;
         this.updateAttributeMenuText();
+    }
+
+    // 公开方法供外部调用
+    public updateFrustumStatus(enabled: boolean) {
+        this.frustumEnabled = enabled;
+        this.updateFrustumMenuText();
     }
 }
 

@@ -297,6 +297,8 @@ const main = async () => {
     let snapshotPreviewEnabled = false;
     // 属性预览开关状态 - 默认关闭
     let attributePreviewEnabled = false;
+    // 视椎体开关状态 - 默认开启
+    let frustumEnabled = true;
 
     // 添加获取快照预览状态的事件处理器
     events.function('snapshot.isEnabled', () => {
@@ -308,6 +310,11 @@ const main = async () => {
         return attributePreviewEnabled;
     });
 
+    // 添加获取视椎体状态的事件处理器
+    events.function('frustum.isEnabled', () => {
+        return frustumEnabled;
+    });
+
     // 监听快照预览开关切换
     events.on('snapshot.toggle', () => {
         snapshotPreviewEnabled = !snapshotPreviewEnabled;
@@ -317,6 +324,24 @@ const main = async () => {
 
         if (!snapshotPreviewEnabled) {
             snapshotView.hide();
+        }
+    });
+
+    // 监听视椎体开关切换
+    events.on('frustum.toggle', () => {
+        frustumEnabled = !frustumEnabled;
+
+        // 同步菜单显示状态
+        editorUI.menu.updateFrustumStatus(frustumEnabled);
+
+        // 关闭时强制隐藏视椎体
+        if (!frustumEnabled) {
+            if (scene.cameraFrustumVisualizer) {
+                scene.cameraFrustumVisualizer.hide();
+            }
+        } else {
+            // 打开时由snapshot-view根据当前上下文（选中/面板状态）决定是否显示
+            // 这里无需强制展示，避免不必要的UI跳动
         }
     });
 
@@ -336,6 +361,8 @@ const main = async () => {
     // 初始化时同步菜单状态
     setTimeout(() => {
         editorUI.menu.updateAttributePreviewStatus(attributePreviewEnabled);
+        editorUI.menu.updateSnapshotPreviewStatus(snapshotPreviewEnabled);
+        editorUI.menu.updateFrustumStatus(frustumEnabled);
     }, 100);
 
     // 监听marker选择事件
