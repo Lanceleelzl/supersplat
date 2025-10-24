@@ -42,6 +42,7 @@ class EditorUI {
     canvas: HTMLCanvasElement;   // HTML画布元素
     popup: Popup;                // 弹窗组件
     menu: Menu;                  // 菜单组件
+    tooltips: Tooltips;          // 悬浮提示实例（对外暴露）
 
     constructor(events: Events) {
         localizeInit();
@@ -214,6 +215,7 @@ class EditorUI {
         this.toolsContainer = toolsContainer;
         this.canvas = canvas;
         this.popup = popup;
+        this.tooltips = tooltips;
 
         document.body.appendChild(appContainer.dom);
         document.body.setAttribute('tabIndex', '-1');
@@ -365,4 +367,4 @@ class EditorUI {
     }
 }
 
-export { EditorUI };
+export { EditorUI };

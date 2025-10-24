@@ -284,7 +284,7 @@ const main = async () => {
     scene.start();
 
     // 创建单一的快照窗口（在scene启动后）
-    const snapshotView = new SnapshotView(events, scene);
+    const snapshotView = new SnapshotView(events, scene, editorUI.tooltips);
     editorUI.canvasContainer.append(snapshotView);
     snapshotView.hide(); // 默认隐藏
 
@@ -353,7 +353,7 @@ const main = async () => {
         editorUI.menu.updateAttributePreviewStatus(attributePreviewEnabled);
 
         console.log('属性预览状态切换:', attributePreviewEnabled ? '开启' : '关闭');
-        
+
         // 触发属性面板的状态更新事件，使用不同的事件名避免循环
         events.fire('attribute.statusChanged', attributePreviewEnabled);
     });
@@ -383,7 +383,7 @@ const main = async () => {
                 events.fire('marker.selected', data.model);
             }
         }
-        
+
         // 属性预览功能对所有模型都生效，不仅限于巡检模型
         if (data.model && attributePreviewEnabled) {
             console.log('显示模型属性面板:', data.model);

@@ -1309,6 +1309,9 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     events.on('inspection.doExport', (exportOptions: any) => {
         const allParams: any[] = [];
 
+        // 读取当前快照设置（统一写入每行）
+        const snapshotSettings = events.invoke('snapshot.getSettings');
+
         // 只处理场景列表中的巡检点位模型
         for (const [pointName, inspectionPoint] of inspectionPoints) {
             // 为每个巡检点位收集数据
@@ -1364,6 +1367,18 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                     if (exportOptions.gimbalYaw) {
                         rowData['云台方向'] = euler.y.toFixed(2);
                     }
+                }
+
+                // 追加快照设置（统一字段，便于排查）
+                if (snapshotSettings) {
+                    rowData['机型预设'] = snapshotSettings.presetKey || '';
+                    rowData['比例'] = snapshotSettings.aspect || '';
+                    rowData['锁定模式'] = snapshotSettings.lockMode || '';
+                    rowData['水平FOV(°)'] = (snapshotSettings.hFovDeg !== undefined) ? Number(snapshotSettings.hFovDeg.toFixed(1)) : '';
+                    rowData['对角FOV(°)'] = (snapshotSettings.dFovDeg !== undefined) ? Number(snapshotSettings.dFovDeg.toFixed(1)) : '';
+                    rowData['传感器宽度(mm)'] = (snapshotSettings.sensorWidthMm !== undefined) ? Number(snapshotSettings.sensorWidthMm.toFixed(2)) : '';
+                    rowData['焦距单位'] = snapshotSettings.unitMode === 'equivalent' ? '等效(mm)' : '真实(mm)';
+                    rowData['焦距'] = (snapshotSettings.focal !== undefined) ? Number(snapshotSettings.focal.toFixed(1)) : '';
                 }
 
                 allParams.push(rowData);

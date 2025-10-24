@@ -1,4 +1,4 @@
-import { Container, Element, NumericInput, Label } from '@playcanvas/pcui';
+import { Container, Element, NumericInput, Label, Button } from '@playcanvas/pcui';
 import {
     Entity,
     CameraComponent,
@@ -15,6 +15,8 @@ import { ElementType } from '../element';
 import { Events } from '../events';
 import { Scene } from '../scene';
 import closeSvg from './svg/close_01.svg';
+import { localize } from './localization'
+import { Tooltips } from './tooltips'
 
 const createSvg = (svgString: string) => {
     const decodedStr = decodeURIComponent(svgString.substring('data:image/svg+xml,'.length));
@@ -39,15 +41,20 @@ class SnapshotView extends Container {
     private currentAspect: '4:3' | '16:9' = '4:3';
     private snapshotWidth = 320;
     private snapshotHeight = 240;
-    private aspectButtons?: { fourThree: HTMLButtonElement, sixteenNine: HTMLButtonElement };
-
+    private aspectButtons?: { fourThree: Button, sixteenNine: Button };
+    private tooltips?: Tooltips;
     // 新增：传感器宽度与锁定模式、派生FOV显示、预设选择
     private sensorWidthMm: number = 32.76; // 由57.4°@30mm推导出的等效传感器宽度
     private lockMode: 'horizontal' | 'diagonal' = 'horizontal';
     private derivedFovLabel?: Label;
     private presetSelectEl?: HTMLSelectElement;
+    // 新增：输入单位与传感器宽度输入
+    private unitMode: 'equivalent' | 'real' = 'equivalent';
+    private sensorWidthInput?: NumericInput;
+    // 防抖：程序设置焦距输入时不触发计算
+    private suppressFocalChange = false;
 
-    constructor(events: Events, scene: Scene, args = {}) {
+    constructor(events: Events, scene: Scene, tooltips?: Tooltips, args = {}) {
         super({
             id: 'snapshot-panel',
             class: 'snapshot-view',
@@ -56,6 +63,7 @@ class SnapshotView extends Container {
 
         this.events = events;
         this.scene = scene;
+        this.tooltips = tooltips;
 
         // stop pointer events bubbling - 阻止指针事件冒泡
         ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick'].forEach((eventName) => {
@@ -75,6 +83,31 @@ class SnapshotView extends Container {
 
         // 添加到body
         document.body.appendChild(this.dom);
+
+        // 注册快照设置查询函数，供导出流程读取
+        this.events.function('snapshot.getSettings', () => {
+            const aspectNum = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
+            const hDeg = this.snapshotCamera?.camera?.fov ?? 57.4;
+            const hRad = hDeg * Math.PI / 180;
+            const t = Math.tan(hRad / 2);
+            const dDeg = 2 * Math.atan(t * Math.sqrt(1 + 1 / (aspectNum * aspectNum))) * 180 / Math.PI;
+
+            // 计算真实与等效焦距，以单位模式返回
+            const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRad / 2)));
+            const eqFocal = realFocal * 36 / this.sensorWidthMm;
+            const focalOut = this.unitMode === 'equivalent' ? eqFocal : realFocal;
+
+            return {
+                aspect: this.currentAspect,
+                lockMode: this.lockMode,
+                hFovDeg: hDeg,
+                dFovDeg: dDeg,
+                sensorWidthMm: this.sensorWidthMm,
+                unitMode: this.unitMode,
+                focal: focalOut,
+                presetKey: (this as any).presetKey || undefined
+            };
+        });
     }
 
     private createUI() {
@@ -143,32 +176,30 @@ class SnapshotView extends Container {
         });
 
         // 新增：比例切换按钮（4:3 / 16:9）
-        const aspectToggle = new Element({ class: 'aspect-toggle' });
+        const aspectToggle = new Container({ class: 'aspect-toggle' });
         aspectToggle.dom.style.display = 'flex';
         aspectToggle.dom.style.gap = '8px';
         aspectToggle.dom.style.marginLeft = '8px';
-        aspectToggle.dom.innerHTML = `
-            <button class="aspect-btn" data-aspect="4:3">4:3</button>
-            <button class="aspect-btn" data-aspect="16:9">16:9</button>
-        `;
+
+        const fourThreeBtn = new Button({ class: ['pcui-button', 'pcui-button-active'], text: '4:3' });
+        const sixteenNineBtn = new Button({ class: 'pcui-button', text: '16:9' });
+
+        fourThreeBtn.on('click', () => {
+            this.setAspect('4:3');
+        });
+        sixteenNineBtn.on('click', () => {
+            this.setAspect('16:9');
+        });
+
+        aspectToggle.append(fourThreeBtn);
+        aspectToggle.append(sixteenNineBtn);
 
         fovRow.append(fovLabel);
         fovRow.append(this.fovInput);
         fovRow.append(aspectToggle);
 
-        // 缓存按钮引用并注册事件
-        const fourThreeBtn = aspectToggle.dom.querySelector('button[data-aspect="4:3"]') as HTMLButtonElement;
-        const sixteenNineBtn = aspectToggle.dom.querySelector('button[data-aspect="16:9"]') as HTMLButtonElement;
+        // 缓存按钮引用
         this.aspectButtons = { fourThree: fourThreeBtn, sixteenNine: sixteenNineBtn };
-        const bindAspect = (btn: HTMLButtonElement, aspect: '4:3'|'16:9') => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.setAspect(aspect);
-            });
-        };
-        bindAspect(fourThreeBtn, '4:3');
-        bindAspect(sixteenNineBtn, '16:9');
 
         // 创建近裁剪面行
         const nearRow = new Container({
@@ -236,6 +267,82 @@ class SnapshotView extends Container {
         focalRow.append(focalLabel);
         focalRow.append(this.focalInput);
 
+        // 新增：焦距单位切换（等效/真实）
+        const unitRow = new Container({ class: 'transform-row' });
+        const unitLabel = new Label({ class: 'transform-label', text: '焦距单位' });
+        const unitBtns = new Container({ class: 'transform-expand' });
+        unitBtns.dom.style.display = 'flex';
+        unitBtns.dom.style.gap = '8px';
+
+        const unitEqBtn = new Button({ class: ['pcui-button', 'pcui-button-active'], text: '等效' });
+        const unitRealBtn = new Button({ class: 'pcui-button', text: '真实' });
+
+        unitEqBtn.on('click', () => {
+            unitEqBtn.class.add('pcui-button-active');
+            unitRealBtn.class.remove('pcui-button-active');
+            this.unitMode = 'equivalent';
+            const hRad = (this.snapshotCamera?.camera?.fov ?? 57.4) * Math.PI / 180;
+            const realFocal = this.sensorWidthMm / (2 * Math.tan(hRad / 2));
+            const eqFocal = realFocal * 36 / this.sensorWidthMm;
+            this.suppressFocalChange = true;
+            this.focalInput.value = Number(eqFocal.toFixed(1));
+            this.suppressFocalChange = false;
+        });
+
+        unitRealBtn.on('click', () => {
+            unitRealBtn.class.add('pcui-button-active');
+            unitEqBtn.class.remove('pcui-button-active');
+            this.unitMode = 'real';
+            const hRad = (this.snapshotCamera?.camera?.fov ?? 57.4) * Math.PI / 180;
+            const realFocal = this.sensorWidthMm / (2 * Math.tan(hRad / 2));
+            this.suppressFocalChange = true;
+            this.focalInput.value = Number(realFocal.toFixed(1));
+            this.suppressFocalChange = false;
+        });
+
+        unitBtns.append(unitEqBtn);
+        unitBtns.append(unitRealBtn);
+        unitRow.append(unitLabel);
+        unitRow.append(unitBtns);
+
+        if (this.tooltips) {
+            this.tooltips.register(unitEqBtn, localize('tooltip.focal-equivalent'), 'top');
+            this.tooltips.register(unitRealBtn, localize('tooltip.focal-real'), 'top');
+        }
+        
+        // 新增：传感器宽度输入（mm）
+        const sensorRow = new Container({ class: 'transform-row' });
+        const sensorLabel = new Label({ class: 'transform-label', text: '传感器宽度(mm)' });
+        this.sensorWidthInput = new NumericInput({
+            class: 'transform-expand',
+            precision: 2,
+            value: this.sensorWidthMm,
+            min: 2.0,
+            max: 40.0,
+            enabled: true
+        });
+        this.sensorWidthInput.on('change', (newWidth: number) => {
+            // 更新传感器宽度，并在保持当前水平FOV的前提下，换算焦距显示
+            this.sensorWidthMm = newWidth;
+            const hRad = (this.snapshotCamera?.camera?.fov ?? 57.4) * Math.PI / 180;
+            const realFocal = this.sensorWidthMm / (2 * Math.tan(hRad / 2));
+            if (this.unitMode === 'equivalent') {
+                const eqFocal = realFocal * 36 / this.sensorWidthMm;
+                this.suppressFocalChange = true;
+                this.focalInput.value = Number(eqFocal.toFixed(1));
+                this.suppressFocalChange = false;
+            } else {
+                this.suppressFocalChange = true;
+                this.focalInput.value = Number(realFocal.toFixed(1));
+                this.suppressFocalChange = false;
+            }
+            this.updateDerivedFovs();
+            this.updateFrustumVisualization();
+            this.forceRenderSnapshot();
+        });
+        sensorRow.append(sensorLabel);
+        sensorRow.append(this.sensorWidthInput);
+
         // 新增：派生FOV显示（垂直/对角）
         const derivedRow = new Container({ class: 'transform-row' });
         this.derivedFovLabel = new Label({ class: 'transform-expand', text: '垂直FOV 0.0° | 对角FOV 0.0°' });
@@ -250,6 +357,13 @@ class SnapshotView extends Container {
                 <option value="default_30mm_57_4">DJI 默认 30mm / 57.4°</option>
                 <option value="ff_24mm">全画幅 24mm 等效</option>
                 <option value="mavic2pro_28mm_1inch">Mavic 2 Pro 28mm eq / 1"</option>
+                <option value="air2s_24mm_1inch">Air 2S 24mm eq / 1"</option>
+                <option value="air2_24mm_halfinch">Air 2 24mm eq / 1/2"</option>
+                <option value="mini3pro_24mm_1_1_3">Mini 3 Pro 24mm eq / 1/1.3"</option>
+                <option value="air3_wide_24mm_1_1_3">Air 3 广角 24mm eq / 1/1.3"</option>
+                <option value="air3_tele_70mm_1_1_3">Air 3 中长焦 70mm eq / 1/1.3"</option>
+                <option value="mavic3_24mm_fourthirds">Mavic 3 广角 24mm eq / 4/3"</option>
+                <option value="mini2_24mm_1_2_3">Mini 2 24mm eq / 1/2.3"</option>
                 <option value="air2_diag_84">DJI Air 2 对角 84°</option>
             </select>`;
         this.presetSelectEl = presetContainer.dom.querySelector('#dji-preset-select') as HTMLSelectElement;
@@ -293,6 +407,8 @@ class SnapshotView extends Container {
         controlsContainer.appendChild(nearRow.dom);
         controlsContainer.appendChild(farRow.dom);
         controlsContainer.appendChild(focalRow.dom);
+        controlsContainer.appendChild(unitRow.dom);
+        controlsContainer.appendChild(sensorRow.dom);
         controlsContainer.appendChild(derivedRow.dom);
         controlsContainer.appendChild(presetRow.dom);
         controlsContainer.appendChild(lockRow.dom);
@@ -618,10 +734,14 @@ class SnapshotView extends Container {
 
                 // 根据水平FOV反算焦距(mm)，用于同步焦距控件显示
                 const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
-                const focalLength = this.sensorWidthMm / (2 * Math.tan(hRadNow / 2));
+                const realFocalFromFov = this.sensorWidthMm / (2 * Math.tan(hRadNow / 2));
+                const eqFocalFromFov = realFocalFromFov * 36 / this.sensorWidthMm;
                 if (this.focalInput) {
-                    const clampedFocal = Math.max(10, Math.min(200, Number(focalLength.toFixed(1))));
+                    this.suppressFocalChange = true;
+                    const outFocal = this.unitMode === 'equivalent' ? eqFocalFromFov : realFocalFromFov;
+                    const clampedFocal = Math.max(10, Math.min(200, Number(outFocal.toFixed(1))));
                     this.focalInput.value = clampedFocal;
+                    this.suppressFocalChange = false;
                 }
             }
 
@@ -793,7 +913,7 @@ class SnapshotView extends Container {
         // FOV控制（兼容水平/对角锁定）
         this.fovInput.on('change', (value: number) => {
             if (!this.snapshotCamera?.camera) return;
-
+        
             const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
             if (this.lockMode === 'horizontal') {
                 console.log('快照预览：设置水平FOV为', value);
@@ -805,12 +925,15 @@ class SnapshotView extends Container {
                 this.snapshotCamera.camera.fov = hRad * 180 / Math.PI;
             }
             console.log('快照预览：当前相机水平FOV为', this.snapshotCamera.camera.fov);
-
-            // 更新焦距（等效）
+        
+            // 更新焦距显示（按单位模式）
             const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
-            const focalEq = this.sensorWidthMm / (2 * Math.tan(hRadNow / 2));
-            this.focalInput.value = Number(focalEq.toFixed(1));
-
+            const realFocal = this.sensorWidthMm / (2 * Math.tan(hRadNow / 2));
+            const eqFocal = realFocal * 36 / this.sensorWidthMm;
+            this.suppressFocalChange = true;
+            this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1));
+            this.suppressFocalChange = false;
+        
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
             this.forceRenderSnapshot();
@@ -841,10 +964,12 @@ class SnapshotView extends Container {
         // 焦距控制（通过调整水平FOV实现）
         this.focalInput.on('change', (focalLength: number) => {
             if (!this.snapshotCamera?.camera) return;
-            // 将焦距转换为水平FOV，使用可变的sensorWidthMm
-            const hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * focalLength)) * 180 / Math.PI;
+            if (this.suppressFocalChange) return;
+            // 将焦距转换为水平FOV，按单位模式解释输入
+            const realFocal = this.unitMode === 'equivalent' ? (focalLength * (this.sensorWidthMm / 36)) : focalLength;
+            const hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * realFocal)) * 180 / Math.PI;
             this.snapshotCamera.camera.fov = hDeg;
-
+        
             // 同步更新FOV输入框（依据锁定模式）
             const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
             if (this.lockMode === 'horizontal') {
@@ -854,7 +979,7 @@ class SnapshotView extends Container {
                 const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
                 this.fovInput.value = parseFloat(dDeg.toFixed(1));
             }
-
+        
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
             this.forceRenderSnapshot();
@@ -890,10 +1015,11 @@ class SnapshotView extends Container {
             this.snapshotCamera.camera.horizontalFov = true;
             this.snapshotCamera.camera.fov = hDeg;
         }
-        // 同步焦距
+        // 同步焦距显示依据单位模式
         const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
-        const focalEq = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
-        this.focalInput && (this.focalInput.value = Number(focalEq.toFixed(1)));
+        const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
+        const eqFocal = realFocal * 36 / this.sensorWidthMm;
+        this.focalInput && (this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1)));
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
         this.forceRenderSnapshot();
@@ -904,6 +1030,9 @@ class SnapshotView extends Container {
         if (!this.snapshotCamera?.camera) return;
         let hDeg: number | undefined;
         let focalEq: number | undefined;
+        this.presetSelectEl && (this.presetSelectEl.value = key);
+        // 记录当前预设
+        (this as any).presetKey = key;
         switch (key) {
             case 'default_30mm_57_4':
                 this.sensorWidthMm = 32.76;
@@ -913,12 +1042,38 @@ class SnapshotView extends Container {
             case 'ff_24mm':
                 this.sensorWidthMm = 36.0; // 全画幅宽度
                 focalEq = 24;
-                hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * focalEq)) * 180 / Math.PI;
                 break;
             case 'mavic2pro_28mm_1inch':
                 this.sensorWidthMm = 13.2; // 1英寸传感器宽度
                 focalEq = 28; // 等效焦距
-                hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * focalEq)) * 180 / Math.PI;
+                break;
+            case 'air2s_24mm_1inch':
+                this.sensorWidthMm = 13.2;
+                focalEq = 24;
+                break;
+            case 'air2_24mm_halfinch':
+                this.sensorWidthMm = 6.4; // 1/2"约6.4mm
+                focalEq = 24;
+                break;
+            case 'mini3pro_24mm_1_1_3':
+                this.sensorWidthMm = 9.6; // 1/1.3"约9.6mm
+                focalEq = 24;
+                break;
+            case 'air3_wide_24mm_1_1_3':
+                this.sensorWidthMm = 9.6;
+                focalEq = 24;
+                break;
+            case 'air3_tele_70mm_1_1_3':
+                this.sensorWidthMm = 9.6;
+                focalEq = 70;
+                break;
+            case 'mavic3_24mm_fourthirds':
+                this.sensorWidthMm = 17.3; // 4/3传感器水平宽度
+                focalEq = 24;
+                break;
+            case 'mini2_24mm_1_2_3':
+                this.sensorWidthMm = 6.2; // 1/2.3"约6.2mm
+                focalEq = 24;
                 break;
             case 'air2_diag_84':
                 // 以对角84°为预设
@@ -933,24 +1088,36 @@ class SnapshotView extends Container {
             default:
                 return;
         }
+        // 依据预设计算水平FOV（如果尚未指定hDeg）
+        if (hDeg === undefined && focalEq !== undefined) {
+            const realFocal = focalEq * (this.sensorWidthMm / 36.0);
+            hDeg = 2 * Math.atan(this.sensorWidthMm / (2 * realFocal)) * 180 / Math.PI;
+        }
+
         // 应用到相机与输入框，依据锁定模式
         if (this.lockMode === 'horizontal') {
             this.snapshotCamera.camera.fov = hDeg!;
             this.fovInput && (this.fovInput.value = Number(hDeg!.toFixed(1)));
         } else {
-            const hRad = hDeg! * Math.PI / 180;
-            const dDegNow = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
+            const hRad = (hDeg! * Math.PI / 180);
+            const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
+            this.fovInput && (this.fovInput.value = Number(dDeg.toFixed(1)));
             this.snapshotCamera.camera.fov = hDeg!;
-            this.fovInput && (this.fovInput.value = Number(dDegNow.toFixed(1)));
         }
-        this.focalInput && (this.focalInput.value = Number(focalEq!.toFixed(1)));
+        // 同步更新焦距显示（防抖避免触发二次计算）
+        const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
+        const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
+        const eqFocal = realFocal * 36 / this.sensorWidthMm;
+        this.suppressFocalChange = true;
+        this.focalInput && (this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1)));
+        this.suppressFocalChange = false;
+        this.sensorWidthInput && (this.sensorWidthInput.value = Number(this.sensorWidthMm.toFixed(2)));
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
         this.forceRenderSnapshot();
     }
 
     private updateFrustumVisualization() {
-        // 更新视椎体可视化（在面板隐藏的情况下也保持），需满足全局开关
         const frustumEnabled = this.events.invoke('frustum.isEnabled');
         if (this.scene.cameraFrustumVisualizer && this.snapshotCamera) {
             this.scene.cameraFrustumVisualizer.setTargetCamera(this.snapshotCamera);

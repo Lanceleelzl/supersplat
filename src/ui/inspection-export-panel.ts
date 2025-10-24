@@ -1,4 +1,4 @@
-import { Container, Label, Button, BooleanInput } from '@playcanvas/pcui';
+import { Container, Label, Button } from '@playcanvas/pcui';
 
 import { Events } from '../events';
 
@@ -16,7 +16,6 @@ interface ExportOptions {
 class InspectionExportPanel extends Container {
     private events: Events;
     private exportOptions: ExportOptions;
-    private checkboxes: { [key: string]: BooleanInput } = {};
     private isDragging: boolean = false;
     private dragOffset: { x: number; y: number } = { x: 0, y: 0 };
 
@@ -32,7 +31,7 @@ class InspectionExportPanel extends Container {
         // 默认隐藏面板
         this.hidden = true;
 
-        // 默认导出选项
+        // 默认导出选项（全部导出）
         this.exportOptions = {
             pointName: true,
             markerName: true,
@@ -40,8 +39,8 @@ class InspectionExportPanel extends Container {
             coordinateY: true,
             coordinateZ: true,
             height: true,
-            gimbalPitch: false,
-            gimbalYaw: false
+            gimbalPitch: true,
+            gimbalYaw: true
         };
 
         this.createUI();
@@ -75,73 +74,63 @@ class InspectionExportPanel extends Container {
 
         // 说明文本
         const description = new Label({
-            text: '请选择要导出的巡检参数：',
+            text: '以下分组列出将要导出的全部参数（默认全部导出）：',
             class: 'export-description'
         });
         contentContainer.append(description);
 
-        // 创建选项容器
-        const optionsContainer = new Container({
-            class: 'export-options-container'
-        });
+        // 分组：巡检点位信息
+        const groupInspection = new Container({ class: 'export-group' });
+        const groupInspectionTitle = new Label({ text: '巡检点位信息', class: 'export-group-title' });
+        const groupInspectionList = new Container({ class: 'export-group-list' });
+        groupInspectionList.append(new Label({ text: '巡检编号', class: 'export-item' }));
+        groupInspectionList.append(new Label({ text: '点位编号', class: 'export-item' }));
+        groupInspection.append(groupInspectionTitle);
+        groupInspection.append(groupInspectionList);
 
-        // 创建各个选项
-        const options = [
-            { key: 'pointName', label: '巡检编号', description: '如：XJ-1, XJ-2' },
-            { key: 'markerName', label: '点位编号', description: '如：XJ-1-1, XJ-1-2' },
-            { key: 'coordinateX', label: 'X坐标', description: '模型在X轴的位置坐标' },
-            { key: 'coordinateY', label: 'Y坐标', description: '模型在Y轴的位置坐标' },
-            { key: 'coordinateZ', label: 'Z坐标', description: '模型在Z轴的位置坐标' },
-            { key: 'height', label: '高度信息', description: '模型的Z轴坐标值' },
-            { key: 'gimbalPitch', label: '云台俯仰', description: '云台俯仰角度（Pitch）' },
-            { key: 'gimbalYaw', label: '云台方向', description: '云台方向角度（Yaw）' }
-        ];
+        // 分组：位置坐标
+        const groupPosition = new Container({ class: 'export-group' });
+        const groupPositionTitle = new Label({ text: '位置坐标', class: 'export-group-title' });
+        const groupPositionList = new Container({ class: 'export-group-list' });
+        groupPositionList.append(new Label({ text: 'X坐标', class: 'export-item' }));
+        groupPositionList.append(new Label({ text: 'Y坐标', class: 'export-item' }));
+        groupPositionList.append(new Label({ text: 'Z坐标', class: 'export-item' }));
+        groupPositionList.append(new Label({ text: '高度', class: 'export-item' }));
+        groupPosition.append(groupPositionTitle);
+        groupPosition.append(groupPositionList);
 
-        options.forEach((option) => {
-            const optionContainer = new Container({
-                class: 'export-option-row'
-            });
+        // 分组：云台参数
+        const groupGimbal = new Container({ class: 'export-group' });
+        const groupGimbalTitle = new Label({ text: '云台参数', class: 'export-group-title' });
+        const groupGimbalList = new Container({ class: 'export-group-list' });
+        groupGimbalList.append(new Label({ text: '云台俯仰', class: 'export-item' }));
+        groupGimbalList.append(new Label({ text: '云台偏航', class: 'export-item' }));
+        groupGimbal.append(groupGimbalTitle);
+        groupGimbal.append(groupGimbalList);
 
-            // 创建复选框
-            const checkbox = new BooleanInput({
-                value: this.exportOptions[option.key as keyof ExportOptions],
-                class: 'export-checkbox'
-            });
-            this.checkboxes[option.key] = checkbox;
+        // 分组：快照设置
+        const groupSnapshot = new Container({ class: 'export-group' });
+        const groupSnapshotTitle = new Label({ text: '快照设置', class: 'export-group-title' });
+        const groupSnapshotList = new Container({ class: 'export-group-list' });
+        groupSnapshotList.append(new Label({ text: '机型预设', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '比例', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '锁定模式', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '水平FOV(°)', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '对角FOV(°)', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '传感器宽度(mm)', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '焦距单位', class: 'export-item' }));
+        groupSnapshotList.append(new Label({ text: '焦距', class: 'export-item' }));
+        groupSnapshot.append(groupSnapshotTitle);
+        groupSnapshot.append(groupSnapshotList);
 
-            // 创建标签
-            const label = new Label({
-                text: option.label,
-                class: 'export-option-label'
-            });
-
-            optionContainer.append(checkbox);
-            optionContainer.append(label);
-            optionsContainer.append(optionContainer);
-
-            // 绑定事件
-            checkbox.on('change', (value: boolean) => {
-                this.exportOptions[option.key as keyof ExportOptions] = value;
-            });
-        });
-
-        contentContainer.append(optionsContainer);
+        contentContainer.append(groupInspection);
+        contentContainer.append(groupPosition);
+        contentContainer.append(groupGimbal);
+        contentContainer.append(groupSnapshot);
 
         // 创建按钮容器
         const buttonContainer = new Container({
             class: 'export-button-container'
-        });
-
-        // 全选按钮
-        const selectAllButton = new Button({
-            text: '全选',
-            class: 'export-select-all'
-        });
-
-        // 全不选按钮
-        const deselectAllButton = new Button({
-            text: '全不选',
-            class: 'export-select-none'
         });
 
         // 导出按钮
@@ -156,11 +145,8 @@ class InspectionExportPanel extends Container {
             class: 'export-cancel'
         });
 
-        buttonContainer.append(selectAllButton);
-        buttonContainer.append(deselectAllButton);
         buttonContainer.append(exportButton);
         buttonContainer.append(cancelButton);
-
         contentContainer.append(buttonContainer);
 
         // 将标题栏和内容添加到面板
@@ -168,8 +154,6 @@ class InspectionExportPanel extends Container {
         this.append(contentContainer);
 
         // 绑定按钮事件
-        selectAllButton.on('click', () => this.selectAll(true));
-        deselectAllButton.on('click', () => this.selectAll(false));
         exportButton.on('click', () => this.handleExport());
         cancelButton.on('click', () => this.hide());
     }
@@ -198,42 +182,25 @@ class InspectionExportPanel extends Container {
         const dragOffset = { x: 0, y: 0 };
 
         const onPointerDown = (e: PointerEvent) => {
-            // 只响应左键点击
-            if (e.button !== 0) return;
-
             isDragging = true;
+            header.setPointerCapture(e.pointerId);
+
             const rect = this.dom.getBoundingClientRect();
             dragOffset.x = e.clientX - rect.left;
             dragOffset.y = e.clientY - rect.top;
 
-            // 设置面板为绝对定位
-            this.dom.style.position = 'absolute';
-            this.dom.style.zIndex = '1000';
-
-            // 捕获指针，确保鼠标移出元素时仍能响应事件
-            header.setPointerCapture(e.pointerId);
-
             e.preventDefault();
-            e.stopPropagation();
         };
 
         const onPointerMove = (e: PointerEvent) => {
             if (!isDragging) return;
 
-            const newX = e.clientX - dragOffset.x;
-            const newY = e.clientY - dragOffset.y;
+            const x = e.clientX - dragOffset.x;
+            const y = e.clientY - dragOffset.y;
 
-            // 限制在视窗范围内
-            const maxX = window.innerWidth - this.dom.offsetWidth;
-            const maxY = window.innerHeight - this.dom.offsetHeight;
-
-            const clampedX = Math.max(0, Math.min(newX, maxX));
-            const clampedY = Math.max(0, Math.min(newY, maxY));
-
-            // 更新位置
-            this.dom.style.left = `${clampedX}px`;
-            this.dom.style.top = `${clampedY}px`;
-            this.dom.style.transform = 'none'; // 取消居中变换
+            this.dom.style.position = 'fixed';
+            this.dom.style.left = `${x}px`;
+            this.dom.style.top = `${y}px`;
 
             e.preventDefault();
         };
@@ -256,23 +223,8 @@ class InspectionExportPanel extends Container {
         header.addEventListener('pointercancel', onPointerUp);
     }
 
-    private selectAll(value: boolean) {
-        Object.keys(this.checkboxes).forEach((key) => {
-            this.checkboxes[key].value = value;
-            this.exportOptions[key as keyof ExportOptions] = value;
-        });
-    }
-
     private handleExport() {
-        // 检查是否至少选择了一个选项
-        const hasSelection = Object.values(this.exportOptions).some(value => value);
-
-        if (!hasSelection) {
-            console.warn('请至少选择一个导出参数！');
-            return;
-        }
-
-        // 触发导出事件，传递选择的选项
+        // 无需选择，直接导出全部参数
         this.events.fire('inspection.doExport', this.exportOptions);
         this.hide();
     }

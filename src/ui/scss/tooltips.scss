@@ -5,9 +5,11 @@
     background-color: $bcg-darkest;
     border-radius: 3px;
     padding: 1px;
+    z-index: 3001;
 }
 
 .tooltips-content {
     color: $clr-default;
     margin: 2px;
 }
+

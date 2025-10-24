@@ -5,8 +5,8 @@
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: 450px !important;
-    max-height: 600px;
+    width: 480px !important;
+    max-height: 640px;
     border: 1px solid $bcg-light;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -69,124 +69,160 @@
 
     .inspection-export-content {
         padding: 16px;
-        max-height: 400px;
+        max-height: 460px;
         overflow-y: auto;
     }
 
     .export-description {
         color: #cccccc;
         font-size: 13px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
         line-height: 1.4;
     }
 
-    .export-options-container {
-        margin-bottom: 20px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px 16px;
+    /* 分组样式 */
+    .export-group {
+        margin-bottom: 16px;
+        padding: 8px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background-color: rgba(255, 255, 255, 0.03);
     }
 
-    .export-option-row {
-        display: flex;
-        align-items: center;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: background-color 0.2s ease;
-        min-height: 28px;
-
-        &:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-        }
-    }
-
-    .export-checkbox {
-        margin-right: 8px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-
-        input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: #4CAF50;
-            margin: 0;
-        }
-    }
-
-    .export-option-label {
+    .export-group-title {
         color: #ffffff;
         font-size: 13px;
-        font-weight: 400;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .export-group-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 16px;
+    }
+
+    .export-item {
+        color: #e0e0e0;
+        font-size: 12px;
         line-height: 1.3;
-        flex: 1;
-        display: flex;
-        align-items: center;
-        margin: 0;
     }
 
     .export-button-container {
         display: flex;
         gap: 8px;
         justify-content: flex-end;
-        padding-top: 16px;
-        border-top: 1px solid #444;
+        padding-top: 12px;
     }
+}
 
-    .export-select-all,
-    .export-select-none,
-    .export-confirm,
-    .export-cancel {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-width: 70px;
+.export-options-container {
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+}
+
+.export-option-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    min-height: 28px;
+
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
     }
+}
 
-    .export-select-all,
-    .export-select-none {
-        background: #555555;
-        color: #ffffff;
+.export-checkbox {
+    margin-right: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
 
-        &:hover {
-            background: #666666;
-        }
+    input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: #4CAF50;
+        margin: 0;
     }
+}
 
-    .export-confirm {
-        background: #4CAF50;
-        color: #ffffff;
+.export-option-label {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.3;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
 
-        &:hover {
-            background: #45a049;
-        }
+.export-button-container {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid #444;
+}
 
-        &:active {
-            background: #3d8b40;
-        }
-    }
+.export-select-all,
+.export-select-none,
+.export-confirm,
+.export-cancel {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 70px;
+}
 
-    .export-cancel {
+.export-select-all,
+.export-select-none {
+    background: #555555;
+    color: #ffffff;
+
+    &:hover {
         background: #666666;
-        color: #ffffff;
+    }
+}
 
-        &:hover {
-            background: #777777;
-        }
+.export-confirm {
+    background: #4CAF50;
+    color: #ffffff;
+
+    &:hover {
+        background: #45a049;
     }
 
-    .export-select-all:disabled,
-    .export-select-none:disabled,
-    .export-confirm:disabled,
-    .export-cancel:disabled {
-        background: #333333;
-        color: #666666;
-        cursor: not-allowed;
+    &:active {
+        background: #3d8b40;
     }
+}
+
+.export-cancel {
+    background: #666666;
+    color: #ffffff;
+
+    &:hover {
+        background: #777777;
+    }
+}
+
+.export-select-all:disabled,
+.export-select-none:disabled,
+.export-confirm:disabled,
+.export-cancel:disabled {
+    background: #333333;
+    color: #666666;
+    cursor: not-allowed;
+}
 }
 
 /* 滚动条样式 */

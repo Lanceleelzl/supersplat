@@ -467,6 +467,8 @@ const localizeInit = () => {
                     'tooltip.measure': 'Measurement',
                     'tooltip.local-space': 'Use Local Orientation',
                     'tooltip.bound-center': 'Use Bound Center',
+                    'tooltip.focal-equivalent': 'Equivalent focal length: 35mm full-frame reference for cross-sensor comparison.',
+                    'tooltip.focal-real': 'Real focal length: physical lens focal length, independent of sensor size.',
 
                     // Viewer Export
                     'export.header': 'EXPORT',
@@ -1519,6 +1521,8 @@ const localizeInit = () => {
                     'tooltip.measure': '测量',
                     'tooltip.local-space': '局部坐标系',
                     'tooltip.bound-center': '使用边界中心',
+                    'tooltip.focal-equivalent': '等效焦距：以 35mm 全画幅为基准，用于不同传感器之间直观对比。',
+                    'tooltip.focal-real': '真实焦距：镜头的物理焦距，与传感器尺寸无关。',
 
                     // Viewer Export
                     'export.header': '导出',
