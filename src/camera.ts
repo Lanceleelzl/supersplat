@@ -668,17 +668,10 @@ class Camera extends Element {
                                         console.log('物理拾取成功 - GLB模型:', foundModel.filename);
                                     }
 
-                                    scene.events.fire('camera.focalPointPicked', {
-                                        camera: this,
+                                    return {
                                         model: foundModel,
                                         position: result.point ? result.point.clone?.() || result.point : nearPoint
-                                    });
-
-                                    // 如果是巡检模型，也触发selection事件以保持一致性
-                                    if ((foundModel as any).isInspectionModel) {
-                                        scene.events.fire('selection', foundModel);
-                                    }
-                                    return;
+                                    };
                                 }
                             }
                         }
@@ -696,17 +689,10 @@ class Camera extends Element {
                                     console.log('物理拾取成功 - GLB模型:', foundModel.filename);
                                 }
 
-                                scene.events.fire('camera.focalPointPicked', {
-                                    camera: this,
+                                return {
                                     model: foundModel,
                                     position: result.point ? result.point.clone?.() || result.point : nearPoint
-                                });
-
-                                // 如果是巡检模型，也触发selection事件以保持一致性
-                                if ((foundModel as any).isInspectionModel) {
-                                    scene.events.fire('selection', foundModel);
-                                }
-                                return;
+                                };
                             }
                         }
                     }
@@ -819,13 +805,7 @@ class Camera extends Element {
                     console.log('是否为巡检模型:', (pickedModel as any).isInspectionModel);
                 }
 
-                scene.events.fire('camera.focalPointPicked', { camera: this, model: pickedModel, position: pickedPoint });
-
-                // 如果是巡检模型，也触发selection事件以保持一致性
-                if ((pickedModel as any).isInspectionModel) {
-                    scene.events.fire('selection', pickedModel);
-                }
-                return;
+                return { model: pickedModel, position: pickedPoint };
             }
 
             // --- 阶段 2: 模型聚合 worldBound AABB 拾取 ---
@@ -941,18 +921,8 @@ class Camera extends Element {
                     console.log('是否为巡检模型:', (pickedModel as any).isInspectionModel);
                 }
 
-                // 仅触发选中，不改变相机焦点（保持行为轻量）
-                scene.events.fire('camera.focalPointPicked', {
-                    camera: this,
-                    model: pickedModel,
-                    position: pickedPoint
-                });
-
-                // 如果是巡检模型，也触发selection事件以保持一致性
-                if ((pickedModel as any).isInspectionModel) {
-                    scene.events.fire('selection', pickedModel);
-                }
-                return; // 已成功选中 GLB，后续不再做 splat 拾取
+                // 返回选中结果，不在此处更改相机或触发事件
+                return { model: pickedModel, position: pickedPoint };
             }
 
             // =============================
@@ -988,17 +958,10 @@ class Camera extends Element {
                         console.log('是否为巡检模型:', (best.model as any).isInspectionModel);
                     }
 
-                    scene.events.fire('camera.focalPointPicked', {
-                        camera: this,
+                    return {
                         model: best.model,
                         position: best.model.worldBound?.center.clone() || nearPoint
-                    });
-
-                    // 如果是巡检模型，也触发selection事件以保持一致性
-                    if ((best.model as any).isInspectionModel) {
-                        scene.events.fire('selection', best.model);
-                    }
-                    return;
+                    };
                 }
 
             }
@@ -1053,21 +1016,26 @@ class Camera extends Element {
     // intersect the scene at the screen location and focus the camera on this location
     pickFocalPoint(screenX: number, screenY: number) {
         const result = this.intersect(screenX, screenY);
-        if (result) {
+        if (result && (result as any).splat) {
             const { scene } = this;
-
-            this.setFocalPoint(result.position);
-            this.setDistance(result.distance / this.sceneRadius * this.fovFactor);
+            this.setFocalPoint((result as any).position);
+            this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
             scene.events.fire('camera.focalPointPicked', {
                 camera: this,
-                splat: result.splat,
-                position: result.position
+                splat: (result as any).splat,
+                position: (result as any).position
+            });
+        } else if (result && (result as any).model) {
+            // GLB 模型选中：不改变相机焦点，仅触发选中事件
+            this.scene.events.fire('camera.focalPointPicked', {
+                camera: this,
+                model: (result as any).model,
+                position: (result as any).position
             });
         } else {
             if (Camera.debugPick) {
                 console.log('没有拾取到任何模型');
             }
-
             // 点击空白区域时也触发事件，用于清空选择
             this.scene.events.fire('camera.focalPointPicked', {
                 camera: this,
