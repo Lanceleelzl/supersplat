@@ -55,7 +55,6 @@ class PointerController {
                 if (pressedButton !== -1) {
                     return;
                 }
-                
                 target.setPointerCapture(event.pointerId);
                 pressedButton = event.button;
                 x = event.offsetX;
@@ -80,7 +79,7 @@ class PointerController {
 
         const pointerup = (event: PointerEvent) => {
             if (event.pointerType === 'mouse') {
-                // Only handle the release of the currently pressed button
+                // Only release if this is the button that was initially pressed
                 if (event.button === pressedButton) {
                     pressedButton = -1;
                     target.releasePointerCapture(event.pointerId);
@@ -95,6 +94,20 @@ class PointerController {
 
         const pointermove = (event: PointerEvent) => {
             if (event.pointerType === 'mouse') {
+                // Only process if we're tracking a button
+                if (pressedButton === -1) {
+                    return;
+                }
+
+                // Verify the button we're tracking is still pressed
+                // 1 = left button, 4 = middle button, 2 = right button
+                const buttonMask = [1, 4, 2][pressedButton];
+                if ((event.buttons & buttonMask) === 0) {
+                    // Button is no longer pressed, clean up
+                    pressedButton = -1;
+                    return;
+                }
+
                 const dx = event.offsetX - x;
                 const dy = event.offsetY - y;
                 x = event.offsetX;

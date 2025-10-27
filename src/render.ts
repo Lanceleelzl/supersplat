@@ -1,4 +1,4 @@
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import { BufferTarget, EncodedPacket, EncodedVideoPacketSource, Mp4OutputFormat, Output, StreamTarget } from 'mediabunny';
 import { path, Vec3 } from 'playcanvas';
 
 import { ElementType } from './element';
@@ -57,6 +57,45 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
         });
     };
 
+    events.function('render.offscreen', async (width: number, height: number): Promise<Uint8Array> => {
+        try {
+            // start rendering to offscreen buffer only
+            scene.camera.startOffscreenMode(width, height);
+            scene.camera.renderOverlays = false;
+
+            // render the next frame
+            scene.forceRender = true;
+
+            // for render to finish
+            await postRender();
+
+            // cpu-side buffer to read pixels into
+            const data = new Uint8Array(width * height * 4);
+
+            const { renderTarget } = scene.camera.entity.camera;
+            const { workRenderTarget } = scene.camera;
+
+            scene.dataProcessor.copyRt(renderTarget, workRenderTarget);
+
+            // read the rendered frame
+            await workRenderTarget.colorBuffer.read(0, 0, width, height, { renderTarget: workRenderTarget, data });
+
+            // flip y positions to have 0,0 at the top
+            let line = new Uint8Array(width * 4);
+            for (let y = 0; y < height / 2; y++) {
+                line = data.slice(y * width * 4, (y + 1) * width * 4);
+                data.copyWithin(y * width * 4, (height - y - 1) * width * 4, (height - y) * width * 4);
+                data.set(line, (height - y - 1) * width * 4);
+            }
+
+            return data;
+        } finally {
+            scene.camera.endOffscreenMode();
+            scene.camera.renderOverlays = true;
+            scene.camera.entity.camera.clearColor.set(0, 0, 0, 0);
+        }
+    });
+
     events.function('render.image', async (imageSettings: ImageSettings) => {
         events.fire('startSpinner');
 
@@ -81,10 +120,12 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
             const data = new Uint8Array(width * height * 4);
 
             const { renderTarget } = scene.camera.entity.camera;
-            const { colorBuffer } = renderTarget;
+            const { workRenderTarget } = scene.camera;
+
+            scene.dataProcessor.copyRt(renderTarget, workRenderTarget);
 
             // read the rendered frame
-            await colorBuffer.read(0, 0, width, height, { renderTarget, data });
+            await workRenderTarget.colorBuffer.read(0, 0, width, height, { renderTarget: workRenderTarget, data });
 
             // the render buffer contains premultiplied alpha. so apply background color.
             if (!transparentBg) {
@@ -108,8 +149,8 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
 
             const arrayBuffer = await compressor.compress(
                 new Uint32Array(data.buffer),
-                colorBuffer.width,
-                colorBuffer.height
+                width,
+                height
             );
 
             // construct filename
@@ -141,26 +182,33 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
         }
     });
 
-    events.function('render.video', async (videoSettings: VideoSettings) => {
+    events.function('render.video', async (videoSettings: VideoSettings, fileStream: FileSystemWritableFileStream) => {
         events.fire('progressStart', localize('render.render-video'));
 
         try {
             const { startFrame, endFrame, frameRate, width, height, bitrate, transparentBg, showDebug } = videoSettings;
 
-            const muxer = new Muxer({
-                target: new ArrayBufferTarget(),
-                video: {
-                    codec: 'avc',
-                    width,
-                    height
-                },
-                fastStart: 'in-memory',
-                firstTimestampBehavior: 'offset'
+            const target = fileStream ? new StreamTarget(fileStream) : new BufferTarget();
+
+            const output = new Output({
+                format: new Mp4OutputFormat({
+                    fastStart: 'in-memory'
+                }),
+                target
             });
 
+            const videoSource = new EncodedVideoPacketSource('avc');
+            output.addVideoTrack(videoSource, {
+                rotation: 0,
+                frameRate
+            });
+
+            await output.start();
+
             const encoder = new VideoEncoder({
-                output: (chunk, meta) => {
-                    muxer.addVideoChunk(chunk, meta);
+                output: async (chunk, meta) => {
+                    const encodedPacket = EncodedPacket.fromEncodedChunk(chunk);
+                    await videoSource.add(encodedPacket, meta);
                 },
                 error: (error) => {
                     console.log(error);
@@ -240,10 +288,12 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
             // capture the current video frame
             const captureFrame = async (frameTime: number) => {
                 const { renderTarget } = scene.camera.entity.camera;
-                const { colorBuffer } = renderTarget;
+                const { workRenderTarget } = scene.camera;
+
+                scene.dataProcessor.copyRt(renderTarget, workRenderTarget);
 
                 // read the rendered frame
-                await colorBuffer.read(0, 0, width, height, { renderTarget, data });
+                await workRenderTarget.colorBuffer.read(0, 0, width, height, { renderTarget: workRenderTarget, data });
 
                 // flip the buffer vertically
                 for (let y = 0; y < height / 2; y++) {
@@ -288,15 +338,17 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
                 });
             }
 
-            // Flush and finalize muxer
+            // Flush and finalize output
             await encoder.flush();
-            muxer.finalize();
-
-            // Download
-            downloadFile(muxer.target.buffer, `${removeExtension(splats[0]?.name ?? 'SuperSplat')}-video.mp4`);
+            await output.finalize();
 
             // Free resources
             encoder.close();
+
+            // Download
+            if (!fileStream) {
+                downloadFile((output.target as BufferTarget).buffer, `${removeExtension(splats[0]?.name ?? 'SuperSplat')}-video.mp4`);
+            }
 
             return true;
         } catch (error) {

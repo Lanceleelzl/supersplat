@@ -61,23 +61,8 @@ class EntityTransformHandler implements TransformHandler {
     placePivot() {
         // place initial pivot point
         const origin = this.events.invoke('pivot.origin');
-
-        if (this.target.type === ElementType.splat) {
-            (this.target as Splat).getPivot(origin === 'center' ? 'center' : 'boundCenter', false, transform);
-        } else if (this.target.type === ElementType.model) {
-            // For GLB models, use entity position and world bound center
-            const model = this.target as GltfModel;
-            const bound = model.worldBound;
-            if (bound && origin === 'boundCenter') {
-                transform.position.copy(bound.center);
-            } else {
-                transform.position.copy(model.entity.getPosition());
-            }
-            transform.rotation.copy(model.entity.getRotation());
-            transform.scale.copy(model.entity.getLocalScale());
-        }
-
-        this.events.fire('pivot.place', transform);
+        this.splat.getPivot(origin === 'center' ? 'center' : 'boundCenter', false, transform);
+        this.events.invoke('pivot').place(transform);
     }
 
     activate() {

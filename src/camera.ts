@@ -3,6 +3,7 @@ import {
     ADDRESS_CLAMP_TO_EDGE,
     FILTER_NEAREST,
     PIXELFORMAT_RGBA8,
+    PIXELFORMAT_RGBA16F,
     PIXELFORMAT_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     PROJECTION_PERSPECTIVE,
@@ -15,12 +16,14 @@ import {
     TONEMAP_NEUTRAL,
     BoundingBox,
     Entity,
+    Mat4,
     Picker,
     Plane,
     Ray,
     RenderTarget,
     Texture,
     Vec3,
+    Vec4,
     WebglGraphicsDevice
 } from 'playcanvas';
 
@@ -50,6 +53,8 @@ const ray = new Ray();
 const vec = new Vec3();
 const vecb = new Vec3();
 const va = new Vec3();
+const m = new Mat4();
+const v4 = new Vec4();
 
 // 处理负数的模运算
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -232,9 +237,17 @@ class Camera extends Element {
         this.setDistance(l / this.sceneRadius * this.fovFactor, dampingFactorFactor);
     }
 
-    // convert world to screen coordinate
+    // transform the world space coordinate to normalized screen coordinate
     worldToScreen(world: Vec3, screen: Vec3) {
-        this.entity.camera.worldToScreen(world, screen);
+        const { camera } = this.entity.camera;
+        m.mul2(camera.projectionMatrix, camera.viewMatrix);
+
+        v4.set(world.x, world.y, world.z, 1);
+        m.transformVec4(v4, v4);
+
+        screen.x = v4.x / v4.w * 0.5 + 0.5;
+        screen.y = 1.0 - (v4.y / v4.w * 0.5 + 0.5);
+        screen.z = v4.z / v4.w;
     }
 
     add() {
@@ -333,6 +346,27 @@ class Camera extends Element {
             set('far_x', va.sub2(points[4], points[7]));
             set('far_y', va.sub2(points[6], points[7]));
         };
+
+        // temp control of camera start
+        const url = new URL(location.href);
+        const focal = url.searchParams.get('focal');
+        if (focal) {
+            const parts = focal.toString().split(',');
+            if (parts.length === 3) {
+                this.setFocalPoint(new Vec3(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])), 0);
+            }
+        }
+        const angles = url.searchParams.get('angles');
+        if (angles) {
+            const parts = angles.toString().split(',');
+            if (parts.length === 2) {
+                this.setAzimElev(parseFloat(parts[0]), parseFloat(parts[1]), 0);
+            }
+        }
+        const distance = url.searchParams.get('distance');
+        if (distance) {
+            this.setDistance(parseFloat(distance), 0);
+        }
     }
 
     remove() {
@@ -372,9 +406,10 @@ class Camera extends Element {
     rebuildRenderTargets() {
         const device = this.scene.graphicsDevice;
         const { width, height } = this.targetSize ?? this.scene.targetSize;
+        const format = this.scene.events.invoke('camera.highPrecision') ? PIXELFORMAT_RGBA16F : PIXELFORMAT_RGBA8;
 
         const rt = this.entity.camera.renderTarget;
-        if (rt && rt.width === width && rt.height === height) {
+        if (rt && rt.width === width && rt.height === height && rt.colorBuffer.format === format) {
             return;
         }
 
@@ -402,7 +437,7 @@ class Camera extends Element {
         };
 
         // in with the new
-        const colorBuffer = createTexture('cameraColor', width, height, PIXELFORMAT_RGBA8);
+        const colorBuffer = createTexture('cameraColor', width, height, format);
         const depthBuffer = createTexture('cameraDepth', width, height, PIXELFORMAT_DEPTH);
         const renderTarget = new RenderTarget({
             colorBuffer,
@@ -548,401 +583,33 @@ class Camera extends Element {
         return Math.sin(fov * 0.5);
     }
 
-    // intersect the scene at the given screen coordinate and focus the camera on this location
-    pickFocalPoint(screenX: number, screenY: number) {
-        const scene = this.scene;
+    getRay(screenX: number, screenY: number, ray: Ray) {
+        const { entity, ortho, scene } = this;
         const cameraPos = this.entity.getPosition();
+
+        // create the pick ray in world space
+        if (ortho) {
+            entity.camera.screenToWorld(screenX, screenY, -1.0, vec);
+            entity.camera.screenToWorld(screenX, screenY, 1.0, vecb);
+            vecb.sub(vec).normalize();
+            ray.set(vec, vecb);
+        } else {
+            entity.camera.screenToWorld(screenX, screenY, 1.0, vec);
+            vec.sub(cameraPos).normalize();
+            ray.set(cameraPos, vec);
+        }
+    }
+
+    // intersect the scene at the given screen coordinate
+    intersect(screenX: number, screenY: number) {
+        const { scene } = this;
 
         const target = scene.canvas;
         const sx = screenX / target.clientWidth * scene.targetSize.width;
         const sy = screenY / target.clientHeight * scene.targetSize.height;
 
-        // 添加调试日志
-        if (Camera.debugPick) {
-            console.log('=== 拾取开始 ===');
-            console.log('屏幕坐标:', screenX, screenY);
-            console.log('场景中的GLB模型数量:', scene.getElementsByType(ElementType.model).length);
-            console.log('场景中的高斯模型数量:', scene.getElementsByType(ElementType.splat).length);
-        }
+        this.getRay(screenX, screenY, ray);
 
-        // =============================
-        // Step 0: Physics-based raycast (if physics components are present)
-        // 优先使用物理系统的精确射线检测（可与复杂 mesh collider 搭配）。
-        // 若失败或物理未初始化，则继续后续 AABB / fallback / splat 逻辑。
-        // =============================
-        try {
-            const cam = this.entity.camera;
-            const dpr = window.devicePixelRatio || 1;
-            const scaledX = screenX * dpr;
-            const scaledY = screenY * dpr;
-            const nearPoint = new Vec3();
-            const farPoint = new Vec3();
-            cam.screenToWorld(scaledX, scaledY, cam.nearClip, nearPoint);
-            cam.screenToWorld(scaledX, scaledY, cam.farClip, farPoint);
-            const physicsRayDir = farPoint.clone().sub(nearPoint).normalize();
-            // Construct a physics ray using pc.Ray if available (avoid shadowing existing Ray import if types differ)
-            // @ts-ignore
-            const pcAny: any = (window as any).pc;
-            if (pcAny && pcAny.Ray) {
-                const ray = new pcAny.Ray(nearPoint, physicsRayDir);
-                const result: any = {};
-                if (pcAny.app?.systems?.rigidbody?.raycastFirst) {
-                    const hit = pcAny.app.systems.rigidbody.raycastFirst(ray, result);
-                    if (!hit && (scene as any).app?.systems?.rigidbody?.raycastFirst) {
-                        // fallback to scene app reference if global pc.app not set
-                        const hit2 = (scene as any).app.systems.rigidbody.raycastFirst(ray, result);
-                        if (hit2) {
-                            if (result?.entity?.tags?.has('pickable')) {
-                                const modelEnt = result.entity;
-                                // ascend to find _gltfModel reference
-                                let cur = modelEnt as any;
-                                let foundModel: GltfModel = null;
-                                while (cur && !foundModel) {
-                                    if (cur._gltfModel) foundModel = cur._gltfModel as GltfModel;
-                                    cur = cur.parent;
-                                }
-                                if (foundModel) {
-                                    if (Camera.debugPick) {
-                                        console.log('物理拾取成功 - GLB模型:', foundModel.filename);
-                                    }
-
-                                    scene.events.fire('camera.focalPointPicked', {
-                                        camera: this,
-                                        model: foundModel,
-                                        position: result.point ? result.point.clone?.() || result.point : nearPoint
-                                    });
-
-                                    // 如果是巡检模型，也触发selection事件以保持一致性
-                                    if ((foundModel as any).isInspectionModel) {
-                                        scene.events.fire('selection', foundModel);
-                                    }
-                                    return;
-                                }
-                            }
-                        }
-                    } else if (hit) {
-                        if (result?.entity?.tags?.has('pickable')) {
-                            const modelEnt = result.entity;
-                            let cur = modelEnt as any;
-                            let foundModel: GltfModel = null;
-                            while (cur && !foundModel) {
-                                if (cur._gltfModel) foundModel = cur._gltfModel as GltfModel;
-                                cur = cur.parent;
-                            }
-                            if (foundModel) {
-                                if (Camera.debugPick) {
-                                    console.log('物理拾取成功 - GLB模型:', foundModel.filename);
-                                }
-
-                                scene.events.fire('camera.focalPointPicked', {
-                                    camera: this,
-                                    model: foundModel,
-                                    position: result.point ? result.point.clone?.() || result.point : nearPoint
-                                });
-
-                                // 如果是巡检模型，也触发selection事件以保持一致性
-                                if ((foundModel as any).isInspectionModel) {
-                                    scene.events.fire('selection', foundModel);
-                                }
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e) {
-            // Physics raycast failed, continue with other picking methods
-            if (Camera.debugPick) {
-                console.log('物理拾取失败:', e);
-            }
-        }
-        // First: GLB 模型拾取（多阶段）
-        // 阶段顺序：
-        // 1) meshInstance 局部 AABB -> world 转换后逐一射线测试（更精细）
-        // 2) 模型整体聚合 worldBound AABB 测试（粗略）
-        // 3) 中心投影 fallback
-        const gltfModels = scene.getElementsByType(ElementType.model);
-        let pickedModel: GltfModel = null;
-        let pickedPoint: Vec3 = null;
-        let pickedDistance = Number.POSITIVE_INFINITY;
-
-        if (gltfModels.length > 0) {
-            const cam = this.entity.camera;
-            const cameraPos = this.entity.getPosition();
-            const cameraForward = this.entity.forward;
-
-            const nearPoint = new Vec3();
-            const farPoint = new Vec3();
-
-            // 统一使用渲染目标尺寸 (考虑 DPR) 的转换
-            // PlayCanvas 的 camera.screenToWorld 期望的是相对 canvas 的屏幕坐标（像素）
-            // 但我们有可能在高 DPI 下使用 clientWidth / clientHeight 逻辑，故确保一致性
-            // Use the same coordinate system as splat picking for consistency
-            cam.screenToWorld(screenX, screenY, cam.nearClip, nearPoint);
-            cam.screenToWorld(screenX, screenY, cam.farClip, farPoint);
-
-            const rayDir = farPoint.clone().sub(nearPoint).normalize();
-            const pickRay = new Ray(nearPoint, rayDir);
-
-            // Debug 可视化：绘制射线
-            if (Camera.debugPick) {
-                try {
-                    const app: any = (scene as any).app;
-                    const lineEnd = nearPoint.clone().add(rayDir.clone().mulScalar(1000));
-                    app?.drawLine?.(nearPoint, lineEnd, new (window as any).pc.Color(1, 1, 0, 1));
-
-                } catch { /* ignore visualization errors */ }
-            }
-
-            const modelBounds: { model: GltfModel, bound: any }[] = [];
-
-            // --- 阶段 1: meshInstance 级 AABB 拾取 ---
-            for (let i = 0; i < gltfModels.length; i++) {
-                const model = gltfModels[i] as GltfModel;
-                if (!model.visible || !model.entity?.enabled) continue;
-                const renderComponents: any[] = model.entity.findComponents('render') as any;
-                for (const render of renderComponents) {
-                    const meshInstances: any[] = (render as any).meshInstances || [];
-                    for (const mi of meshInstances) {
-                        if (!mi?.aabb || !mi?.node) continue;
-                        // world 变换
-                        const worldAabb = new BoundingBox();
-                        worldAabb.setFromTransformedAabb(mi.aabb, mi.node.getWorldTransform());
-                        const ip = new Vec3();
-                        if (Camera.debugPick) {
-                            // 画出 meshInstance AABB（线框）
-                            try {
-                                const app: any = (scene as any).app;
-                                const bbMin = worldAabb.getMin();
-                                const bbMax = worldAabb.getMax();
-                                const corners = [
-                                    new Vec3(bbMin.x, bbMin.y, bbMin.z),
-                                    new Vec3(bbMax.x, bbMin.y, bbMin.z),
-                                    new Vec3(bbMax.x, bbMax.y, bbMin.z),
-                                    new Vec3(bbMin.x, bbMax.y, bbMin.z),
-                                    new Vec3(bbMin.x, bbMin.y, bbMax.z),
-                                    new Vec3(bbMax.x, bbMin.y, bbMax.z),
-                                    new Vec3(bbMax.x, bbMax.y, bbMax.z),
-                                    new Vec3(bbMin.x, bbMax.y, bbMax.z)
-                                ];
-                                const color = new (window as any).pc.Color(0, 0.6, 1, 1);
-                                const drawE = (a: number, b: number) => app?.drawLine?.(corners[a], corners[b], color);
-                                drawE(0, 1); drawE(1, 2); drawE(2, 3); drawE(3, 0); // bottom
-                                drawE(4, 5); drawE(5, 6); drawE(6, 7); drawE(7, 4); // top
-                                drawE(0, 4); drawE(1, 5); drawE(2, 6); drawE(3, 7); // pillars
-                            } catch { /* ignore aabb visualization errors */ }
-                        }
-                        if (worldAabb.intersectsRay(pickRay, ip)) {
-                            const distance = ip.clone().sub(nearPoint).length();
-                            if (distance < pickedDistance) {
-                                pickedDistance = distance;
-                                pickedModel = model;
-                                pickedPoint = ip.clone();
-                                if (Camera.debugPick) {
-
-                                    try {
-                                        const app: any = (scene as any).app;
-                                        app?.drawLine?.(nearPoint, ip, new (window as any).pc.Color(1, 0, 0, 1));
-                                    } catch { /* ignore */ }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (pickedModel) {
-                if (Camera.debugPick) {
-                    console.log('GLB模型拾取成功 - 阶段1:', pickedModel.filename);
-                    console.log('是否为巡检模型:', (pickedModel as any).isInspectionModel);
-                }
-
-                scene.events.fire('camera.focalPointPicked', { camera: this, model: pickedModel, position: pickedPoint });
-
-                // 如果是巡检模型，也触发selection事件以保持一致性
-                if ((pickedModel as any).isInspectionModel) {
-                    scene.events.fire('selection', pickedModel);
-                }
-                return;
-            }
-
-            // --- 阶段 2: 模型聚合 worldBound AABB 拾取 ---
-            for (let i = 0; i < gltfModels.length; i++) {
-                const model = gltfModels[i] as GltfModel;
-                if (!model.visible || !model.entity?.enabled) continue;
-                const wb = model.worldBound; // 已缓存
-                if (!wb) continue;
-                modelBounds.push({ model, bound: wb });
-                const ip = new Vec3();
-                const intersects = wb.intersectsRay(pickRay, ip);
-
-                // Manual ray-AABB intersection test as fallback
-                let manualIntersects = false;
-                const manualIP = new Vec3();
-
-                // Implement our own ray-AABB intersection
-                const rayOrigin = pickRay.origin;
-                const rayDirection = pickRay.direction;
-                const aabbMin = wb.getMin();
-                const aabbMax = wb.getMax();
-
-                let tmin = (aabbMin.x - rayOrigin.x) / rayDirection.x;
-                let tmax = (aabbMax.x - rayOrigin.x) / rayDirection.x;
-
-                if (tmin > tmax) {
-                    const temp = tmin;
-                    tmin = tmax;
-                    tmax = temp;
-                }
-
-                let tymin = (aabbMin.y - rayOrigin.y) / rayDirection.y;
-                let tymax = (aabbMax.y - rayOrigin.y) / rayDirection.y;
-
-                if (tymin > tymax) {
-                    const temp = tymin;
-                    tymin = tymax;
-                    tymax = temp;
-                }
-
-                if (tmin > tymax || tymin > tmax) {
-                    manualIntersects = false;
-                } else {
-                    tmin = Math.max(tmin, tymin);
-                    tmax = Math.min(tmax, tymax);
-
-                    let tzmin = (aabbMin.z - rayOrigin.z) / rayDirection.z;
-                    let tzmax = (aabbMax.z - rayOrigin.z) / rayDirection.z;
-
-                    if (tzmin > tzmax) {
-                        const temp = tzmin;
-                        tzmin = tzmax;
-                        tzmax = temp;
-                    }
-
-                    if (tmin > tzmax || tzmin > tmax) {
-                        manualIntersects = false;
-                    } else {
-                        tmin = Math.max(tmin, tzmin);
-                        if (tmin >= 0) {
-                            manualIntersects = true;
-                            manualIP.copy(rayOrigin).add(rayDirection.clone().mulScalar(tmin));
-                        }
-                    }
-                }
-
-                // Additional debugging: manually test if the ray should intersect
-                const rayToCenter = wb.center.clone().sub(pickRay.origin);
-                const projectionOnRay = rayToCenter.dot(pickRay.direction);
-                const distanceToRay = rayToCenter.clone().sub(pickRay.direction.clone().mulScalar(projectionOnRay)).length();
-                const maxHalfExtent = Math.max(wb.halfExtents.x, wb.halfExtents.y, wb.halfExtents.z);
-
-                // Use either PlayCanvas result or manual calculation
-                const finalIntersects = intersects || manualIntersects;
-                const finalIP = intersects ? ip : manualIP;
-
-                if (finalIntersects) {
-                    const distance = finalIP.clone().sub(nearPoint).length();
-                    if (Camera.debugPick) {
-                        // 画出模型聚合 AABB
-                        try {
-                            const app: any = (scene as any).app;
-                            const bbMin = wb.getMin();
-                            const bbMax = wb.getMax();
-                            const corners = [
-                                new Vec3(bbMin.x, bbMin.y, bbMin.z),
-                                new Vec3(bbMax.x, bbMin.y, bbMin.z),
-                                new Vec3(bbMax.x, bbMax.y, bbMin.z),
-                                new Vec3(bbMin.x, bbMax.y, bbMin.z),
-                                new Vec3(bbMin.x, bbMin.y, bbMax.z),
-                                new Vec3(bbMax.x, bbMin.y, bbMax.z),
-                                new Vec3(bbMax.x, bbMax.y, bbMax.z),
-                                new Vec3(bbMin.x, bbMax.y, bbMax.z)
-                            ];
-                            const color = new (window as any).pc.Color(0.9, 0.5, 0.1, 1);
-                            const drawE = (a: number, b: number) => app?.drawLine?.(corners[a], corners[b], color);
-                            drawE(0, 1); drawE(1, 2); drawE(2, 3); drawE(3, 0);
-                            drawE(4, 5); drawE(5, 6); drawE(6, 7); drawE(7, 4);
-                            drawE(0, 4); drawE(1, 5); drawE(2, 6); drawE(3, 7);
-                        } catch { /* ignore */ }
-                    }
-                    if (distance < pickedDistance) {
-                        pickedDistance = distance;
-                        pickedModel = model;
-                        pickedPoint = finalIP.clone();
-                    }
-                }
-            }
-
-            if (pickedModel) {
-                if (Camera.debugPick) {
-                    console.log('GLB模型拾取成功 - 阶段2:', pickedModel.filename);
-                    console.log('是否为巡检模型:', (pickedModel as any).isInspectionModel);
-                }
-
-                // 仅触发选中，不改变相机焦点（保持行为轻量）
-                scene.events.fire('camera.focalPointPicked', {
-                    camera: this,
-                    model: pickedModel,
-                    position: pickedPoint
-                });
-
-                // 如果是巡检模型，也触发selection事件以保持一致性
-                if ((pickedModel as any).isInspectionModel) {
-                    scene.events.fire('selection', pickedModel);
-                }
-                return; // 已成功选中 GLB，后续不再做 splat 拾取
-            }
-
-            // =============================
-            // Fallback: 如果射线未命中任何 AABB，尝试基于包围盒中心投影的屏幕距离近似选取
-            // 用于模型较大 / 视线角度特殊 / AABB 射线漏判的情况
-            // =============================
-            const fallbackCandidates: { model: GltfModel, dist2: number }[] = [];
-            for (let i = 0; i < modelBounds.length; i++) {
-                const { model, bound } = modelBounds[i];
-                // 计算包围盒中心的屏幕坐标
-                const sp = cam.worldToScreen(bound.center, va.clone());
-                if (!sp) continue; // 极端情况
-                // 只考虑在前方的
-                if (sp.z < 0 || sp.z > 1) continue;
-                const dx = screenX - sp.x;
-                const dy = screenY - sp.y;
-                const d2 = dx * dx + dy * dy;
-                fallbackCandidates.push({ model, dist2: d2 });
-
-            }
-
-            if (fallbackCandidates.length) {
-                fallbackCandidates.sort((a, b) => a.dist2 - b.dist2);
-                const best = fallbackCandidates[0];
-
-                // 临时测试：大幅增加阈值，确保GLB模型能被选中
-                const threshold = 10000; // 100px 半径
-
-
-                if (best.dist2 < threshold) {
-                    if (Camera.debugPick) {
-                        console.log('GLB模型拾取成功 - 阶段3(fallback):', best.model.filename);
-                        console.log('是否为巡检模型:', (best.model as any).isInspectionModel);
-                    }
-
-                    scene.events.fire('camera.focalPointPicked', {
-                        camera: this,
-                        model: best.model,
-                        position: best.model.worldBound?.center.clone() || nearPoint
-                    });
-
-                    // 如果是巡检模型，也触发selection事件以保持一致性
-                    if ((best.model as any).isInspectionModel) {
-                        scene.events.fire('selection', best.model);
-                    }
-                    return;
-                }
-
-            }
-        }
-
-        // If no GLB model was picked, continue with splat picking
         const splats = scene.getElementsByType(ElementType.splat);
 
         let closestD = 0;
@@ -961,18 +628,6 @@ class Camera extends Element {
                 // create a plane at the world position facing perpendicular to the camera
                 plane.setFromPointNormal(vec, this.entity.forward);
 
-                // create the pick ray in world space
-                if (this.ortho) {
-                    this.entity.camera.screenToWorld(screenX, screenY, -1.0, vec);
-                    this.entity.camera.screenToWorld(screenX, screenY, 1.0, vecb);
-                    vecb.sub(vec).normalize();
-                    ray.set(vec, vecb);
-                } else {
-                    this.entity.camera.screenToWorld(screenX, screenY, 1.0, vec);
-                    vec.sub(cameraPos).normalize();
-                    ray.set(cameraPos, vec);
-                }
-
                 // find intersection
                 if (plane.intersectsRay(ray, vec)) {
                     const distance = vecb.sub2(vec, ray.origin).length();
@@ -985,17 +640,29 @@ class Camera extends Element {
             }
         }
 
-        if (closestSplat) {
-            if (Camera.debugPick) {
-                console.log('高斯模型拾取成功:', closestSplat.filename);
-            }
+        if (!closestSplat) {
+            return null;
+        }
 
-            this.setFocalPoint(closestP);
-            this.setDistance(closestD / this.sceneRadius * this.fovFactor);
+        return {
+            splat: closestSplat,
+            position: closestP,
+            distance: closestD
+        };
+    }
+
+    // intersect the scene at the screen location and focus the camera on this location
+    pickFocalPoint(screenX: number, screenY: number) {
+        const result = this.intersect(screenX, screenY);
+        if (result) {
+            const { scene } = this;
+
+            this.setFocalPoint(result.position);
+            this.setDistance(result.distance / this.sceneRadius * this.fovFactor);
             scene.events.fire('camera.focalPointPicked', {
                 camera: this,
-                splat: closestSplat,
-                position: closestP
+                splat: result.splat,
+                position: result.position
             });
         } else {
             if (Camera.debugPick) {

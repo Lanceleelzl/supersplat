@@ -3,6 +3,7 @@ import { Vec3 } from 'playcanvas';
 import { CreateDropHandler } from './drop-handler';
 import { ElementType } from './element';
 import { Events } from './events';
+import { AssetSource } from './loaders/asset-source';
 import { Scene } from './scene';
 import { DownloadWriter, FileStreamWriter } from './serialize/writer';
 import { Splat } from './splat';
@@ -42,6 +43,13 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
         accept: {
             'application/x-gaussian-splat': ['.json', '.sog'],
             'image/webp': ['.webp']
+        }
+    },
+    'lcc': {
+        description: 'LCC Scene',
+        accept: {
+            'application/json': ['.lcc'],
+            'application/octet-stream': ['.bin']
         }
     },
     'splat': {
@@ -173,7 +181,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // import a single file, .ply, .splat or meta.json
     const importFile = async (file: ImportFile, animationFrame: boolean) => {
         try {
-            const model = await scene.assetLoader.loadModel({
+            const model = await scene.assetLoader.load({
                 contents: file.contents,
                 filename: file.filename,
                 url: file.url,
@@ -205,7 +213,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             return name;
         };
 
-        const model = await scene.assetLoader.loadModel({
+        const model = await scene.assetLoader.load({
             filename: files[meta].filename,
             url: urls[meta],
             animationFrame,
@@ -222,7 +230,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     const importLcc = async (files: ImportFile[], animationFrame: boolean) => {
         try {
             const meta = files.findIndex(f => f.filename.toLowerCase().endsWith('.lcc'));
-            const mapFile = (name: string) => {
+
+            const mapFile = (name: string): AssetSource | null => {
                 const lowerName = name.toLowerCase();
                 const idx = files.findIndex(f => f.filename.toLowerCase() === lowerName);
                 if (idx >= 0) {
@@ -230,12 +239,18 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filename: files[idx].filename,
                         contents: files[idx].contents
                     };
+                } else if (files[meta].url) {
+                    return {
+                        filename: name,
+                        url: new URL(name, files[meta].url).toString()
+                    };
                 }
-                return undefined;
+                return null;
             };
 
-            const model = await scene.assetLoader.loadModel({
+            const model = await scene.assetLoader.load({
                 filename: files[meta].filename,
+                url: files[meta].url,
                 contents: files[meta].contents,
                 animationFrame,
                 mapFile
@@ -247,6 +262,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } catch (error) {
             await showLoadError(error.message ?? error, 'lcc');
         }
+
     };
 
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
@@ -263,7 +279,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         } else if (isSog(filenames)) {
             // import sog files
             result.push(await importSog(files, animationFrame));
-        } else if (isLcc(filenames)) {
+        }  else if (isLcc(filenames)) {
             // import lcc files
             result.push(await importLcc(files, animationFrame));
         } else {
@@ -304,7 +320,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin');
         fileSelector.setAttribute('multiple', 'true');
 
 
@@ -368,7 +384,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.ply,
                         filePickerTypes.splat,
                         filePickerTypes.sog,
-                        filePickerTypes.gltf
+                        filePickerTypes.lcc
                     ]
                 });
 
