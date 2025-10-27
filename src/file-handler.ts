@@ -327,7 +327,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 // 如果仍然找不到，尝试匹配文件名的基础部分（去掉路径）
                 if (idx < 0) {
                     const baseName = name.split('/').pop()?.toLowerCase() || name.toLowerCase();
-                    idx = files.findIndex(f => {
+                    idx = files.findIndex((f) => {
                         const fileBaseName = f.filename.split('/').pop()?.toLowerCase() || f.filename.toLowerCase();
                         return fileBaseName === baseName;
                     });
@@ -404,17 +404,14 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 } else if (['.ply', '.splat', '.sog'].some(ext => filename.endsWith(ext))) {
                     // load gaussian splat model
                     result.push(await importFile(files[i], animationFrame));
-<<<<<<< HEAD
                 } else if (filenames[i].endsWith('.gltf') || filenames[i].endsWith('.glb')) {
                     result.push(await importFile(files[i], animationFrame));
-=======
                 } else if (filename.endsWith('images.txt')) {
                     // load colmap frames
                     await loadImagesTxt(files[i], events);
                 } else if (filename.endsWith('.json')) {
                     // load inria camera poses
                     await loadCameraPoses(files[i], events);
->>>>>>> upstream/main
                 }
             }
         }
@@ -433,11 +430,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-<<<<<<< HEAD
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin');
-=======
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin,.txt');
->>>>>>> upstream/main
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.gltf,.glb,.lcc,.bin,.txt');
         fileSelector.setAttribute('multiple', 'true');
 
         fileSelector.onchange = () => {
@@ -502,13 +495,9 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.compressedPly,
                         filePickerTypes.splat,
                         filePickerTypes.sog,
-<<<<<<< HEAD
                         filePickerTypes.gltf,
-                        filePickerTypes.lcc
-=======
                         filePickerTypes.lcc,
                         filePickerTypes.indexTxt
->>>>>>> upstream/main
                     ]
                 });
 
