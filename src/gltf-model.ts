@@ -82,6 +82,22 @@ class GltfModel extends Element {
             }
         }
 
+        // 让 GLB 在快照相机可见：将所有 render 组件加入 Snapshot World 图层
+        // 巡检点位模型（isInspectionModel）不加入，以便在快照预览中隔离
+        try {
+            const isInspection = (this as any).isInspectionModel === true;
+            if (!isInspection && this.scene?.snapshotLayer && this.entity) {
+                const layerId = this.scene.snapshotLayer.id;
+                const renders = this.entity.findComponents('render') as any[];
+                for (const r of renders) {
+                    const ls: number[] = Array.isArray(r.layers) ? r.layers.slice() : [];
+                    if (!ls.includes(layerId)) {
+                        r.layers = ls.concat([layerId]);
+                    }
+                }
+            }
+        } catch {}
+
         // 添加碰撞器以支持选择和交互
         this.setupPhysicsPicking();
     }

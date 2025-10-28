@@ -68,6 +68,9 @@ class Underlay extends Element {
             glDevice.updateBegin();
             this.quadRender.render();
             glDevice.updateEnd();
+
+            // restore states to defaults after blit
+            device.setBlendState(BlendState.NOBLEND);
         });
     }
 

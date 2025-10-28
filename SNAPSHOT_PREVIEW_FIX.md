@@ -59,3 +59,48 @@
   - 添加场景验证清单：排序一致性、材质参数一致性、视口与 RT 尺寸一致性；在开发模式下添加断言或日志监控关键事件。
 
 > 通过上述解耦与独立排序、材质安全同步、视口隔离的组合方案，快照预览激活后不再影响主场景的 `splat` 渲染，透明混合与排序在两个相机下都保持正确与稳定。
+
+---
+
+## 2025-10-28 增补：PLY加载报错与快照画面空白修复
+
+### 现象
+- 加载部分 `.ply` 文件时报错：`Cannot read properties of null (reading 'events')`。
+- 主场景渲染正常，但“快照预览”中 `splat` 与 `glb` 皆不显示（黑屏/空白）。
+
+### 根因
+1. Splat 构造阶段访问了 `this.scene.events`：
+   - 在被 `scene.add()` 之前，`element.scene` 尚未赋值，导致构造内读取 `this.scene.events` 为 `null` 抛错。
+2. 快照图层没有有效内容：
+   - `splat` 的快照克隆未在“添加到场景”阶段设置到 `Snapshot World` 图层。
+   - `glb` 的渲染组件仅在 `World`，未加入 `Snapshot World`，导致快照相机无可见实例。
+3. 快照相机可见图层不足：
+   - 仅渲染 `Snapshot World` 时，若未包含背景/调试/阴影图层，会出现全黑或缺少辅助元素。
+
+### 变更与措施
+- `src/splat.ts`
+  - 删除构造期对 `this.scene.events` 的访问：构造阶段仅使用资源中的 `shBands` 等初值；待 `add()` 后再由 `rebuildMaterial` 做统一同步。
+  - 在 `add()` 完成、元素进入场景后，显式将 `snapshotEntity` 的 `render.layers` 设为 `snapshotLayer.id`，确保快照相机可见。
+  - 在 `rebuildMaterial()` 中同时更新主实例与快照克隆的材质（混合状态、shader chunk、材质参数），保持显示一致。
+
+- `src/gltf-model.ts`
+  - 为 GLB 的所有 `meshInstance` 追加 `snapshotLayer.id`（保留 `World`，并加入 `Snapshot World`），实现主场景与快照场景“双栖”。
+
+- `src/ui/snapshot-view.ts`
+  - 快照相机图层配置扩展为渲染：`Snapshot World`、`backgroundLayer`、`debugLayer`、`shadowLayer`（不渲染 `World`，避免与主场景耦合）。
+
+### 验证
+- 刷新预览，启用“Snapshot Preview”。
+- 依次加载 `.ply` 与 `.glb`：
+  - PLY 不再触发 `null.events` 报错，加载成功。
+  - 主场景渲染正常；快照窗口可见 `splat` 与 `glb`，背景/调试/阴影元素可按配置显示。
+- 旋转主相机与快照相机，透明混合/排序稳定，无一侧可见的问题。
+
+### 注意与边界
+- 快照相机不渲染 `World` 层，避免共享 `meshInstance` 导致排序/状态串扰；如需在快照显示特定主场景元素，请将其单独复制或加入 `Snapshot World`。
+- 后续新增材质参数或渲染状态时，请在 `rebuildMaterial()` 中补充快照克隆的同步逻辑，防止两视图出现显示不一致。
+
+### 受影响文件
+- `src/splat.ts`：构造期去耦、`add()` 时设置快照图层、克隆材质同步。
+- `src/gltf-model.ts`：GLB 渲染组件加入 `Snapshot World`。
+- `src/ui/snapshot-view.ts`：快照相机图层可见性调整。

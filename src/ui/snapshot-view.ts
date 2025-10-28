@@ -116,6 +116,13 @@ class SnapshotView extends Container {
                 presetKey: (this as any).presetKey || undefined
             };
         });
+
+        // 对外暴露快照相机与渲染目标尺寸，便于克隆实例安全同步
+        this.events.function('snapshot.getCameraEntity', () => this.snapshotCamera);
+        this.events.function('snapshot.getRenderTargetSize', () => ({
+            width: this.previewRT?.width ?? this.snapshotWidth,
+            height: this.previewRT?.height ?? this.snapshotHeight
+        }));
     }
 
     private createUI() {
@@ -540,12 +547,12 @@ class SnapshotView extends Container {
         // 设置相机初始朝向为+Y方向，与巡检模型的朝向一致
         this.snapshotCamera.setEulerAngles(90, 0, 0);
 
-        // 设置相机的渲染层，包含所有主要层
+        // 设置相机的渲染层：Snapshot World + 背景/调试/阴影（不包含 World）
         this.snapshotCamera.camera.layers = [
-            this.scene.app.scene.layers.getLayerByName('World').id,
+            this.scene.snapshotLayer.id,
             this.scene.backgroundLayer.id,
-            this.scene.shadowLayer.id,
-            this.scene.debugLayer.id
+            this.scene.debugLayer.id,
+            this.scene.shadowLayer.id
         ];
 
         // 应用与主相机相同的色调映射和曝光设置
@@ -673,8 +680,10 @@ class SnapshotView extends Container {
             this.previewData.set(temp, bottom);
         }
 
+        // 兼容部分 TS/DOM 类型收窄：先创建空 ImageData 再填充像素
         const pixels = new Uint8ClampedArray(this.previewData.buffer);
-        const imageData = new ImageData(pixels, width, height);
+        const imageData = new ImageData(width, height);
+        imageData.data.set(pixels);
         this.previewCtx.putImageData(imageData, 0, 0);
     }
 

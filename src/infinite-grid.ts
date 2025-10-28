@@ -4,6 +4,7 @@ import {
     BLENDMODE_SRC_ALPHA,
     BLENDEQUATION_ADD,
     CULLFACE_NONE,
+    CULLFACE_BACK,
     FUNC_LESSEQUAL,
     SEMANTIC_POSITION,
     BlendState,
@@ -97,6 +98,12 @@ class InfiniteGrid extends Element {
                 });
 
                 this.quadRender.render();
+
+                // restore states to defaults for subsequent rendering
+                device.setBlendState(BlendState.NOBLEND);
+                device.setCullMode(CULLFACE_BACK);
+                device.setDepthState(DepthState.WRITEDEPTH);
+                device.setStencilState(null, null);
             }
         });
     }

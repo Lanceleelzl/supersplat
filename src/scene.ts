@@ -38,6 +38,7 @@ class Scene {
     debugLayer: Layer;       // 调试层
     overlayLayer: Layer;     // 覆盖层
     gizmoLayer: Layer;       // 小工具层
+    snapshotLayer: Layer;    // 快照世界层（仅快照相机渲染）
     sceneState = [new SceneState(), new SceneState()];  // 场景状态缓存
     elements: Element[] = [];  // 场景元素列表
     boundStorage = new BoundingBox();  // 边界框存储
@@ -66,8 +67,8 @@ class Scene {
     cameraRoot: Entity;
 
     // 巡检点位管理
-    inspectionPoints: Map<string, { 
-        models: GltfModel[], 
+    inspectionPoints: Map<string, {
+        models: GltfModel[],
         position: any,
         cameraParams?: {
             position: { x: number, y: number, z: number },
@@ -206,12 +207,22 @@ class Scene {
             transparentSortMode: SORTMODE_NONE
         });
 
+        // snapshot layer（与 World 解耦，专供快照相机使用）
+        this.snapshotLayer = new Layer({
+            enabled: true,
+            name: 'Snapshot World',
+            opaqueSortMode: SORTMODE_NONE,
+            transparentSortMode: SORTMODE_NONE
+        });
+
         const layers = this.app.scene.layers;
         const worldLayer = layers.getLayerByName('World');
         const idx = layers.getOpaqueIndex(worldLayer);
         layers.insert(this.backgroundLayer, idx);
         layers.insert(this.shadowLayer, idx + 1);
         layers.insert(this.debugLayer, idx + 1);
+        // 将 Snapshot World 插入在 World 层前，排序独立；仅快照相机会使用它
+        layers.insert(this.snapshotLayer, idx);
         layers.push(this.overlayLayer);
         layers.push(this.gizmoLayer);
 
@@ -251,7 +262,7 @@ class Scene {
     private setupSceneLighting() {
         // 设置环境光，提供基础照明
         this.app.scene.ambientLight.set(0.4, 0.4, 0.5);
-        
+
         // 添加一个主方向光，模拟太阳光
         const lightEntity = new Entity('DirectionalLight');
         lightEntity.addComponent('light', {
@@ -262,10 +273,10 @@ class Scene {
             shadowDistance: 50,
             shadowResolution: 1024
         });
-        
+
         // 设置光源方向（从右上方照射）
         lightEntity.setEulerAngles(45, 30, 0);
-        
+
         // 将光源添加到场景
         this.app.root.addChild(lightEntity);
     }
@@ -273,7 +284,7 @@ class Scene {
     start() {
         // start the app
         this.app.start();
-        
+
         // 触发scene启动事件
         this.events.fire('scene.started');
     }

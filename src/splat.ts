@@ -55,6 +55,7 @@ class Splat extends Element {
     numLocked = 0;
     numSelected = 0;
     entity: Entity;
+    snapshotEntity?: Entity; // 快照用克隆实例（独立排序与图层）
     changedCounter = 0;
     stateTexture: Texture;
     transformTexture: Texture;
@@ -169,7 +170,8 @@ class Splat extends Element {
 
         this.rebuildMaterial = (bands: number) => {
             const { material } = instance;
-            // material.blendState = blendState;
+            // 确保高斯泼溅使用期望的预乘Alpha混合，避免受到全局设备状态污染
+            material.blendState = blendState;
             const { glsl } = material.shaderChunks;
             glsl.set('gsplatVS', vertexShader);
             glsl.set('gsplatPS', fragmentShader);
@@ -179,6 +181,21 @@ class Splat extends Element {
             material.setParameter('splatState', this.stateTexture);
             material.setParameter('splatTransform', this.transformTexture);
             material.update();
+
+            // 同步到快照实例的材质
+            if (this.snapshotEntity) {
+                const snapInst = this.snapshotEntity.gsplat.instance;
+                const { material: smat } = snapInst;
+                smat.blendState = blendState;
+                const { glsl: sglsl } = smat.shaderChunks;
+                sglsl.set('gsplatVS', vertexShader);
+                sglsl.set('gsplatPS', fragmentShader);
+                sglsl.set('gsplatCenterVS', gsplatCenter);
+                smat.setDefine('SH_BANDS', `${Math.min(bands, (snapInst.resource as GSplatResource).shBands)}`);
+                smat.setParameter('splatState', this.stateTexture);
+                smat.setParameter('splatTransform', this.transformTexture);
+                smat.update();
+            }
         };
 
         this.selectionBoundStorage = new BoundingBox();
@@ -193,6 +210,52 @@ class Splat extends Element {
         instance.sorter.on('updated', () => {
             this.changedCounter++;
         });
+
+        // 创建快照克隆实体（与主实例解耦，加入 Snapshot World）
+        this.snapshotEntity = new Entity('splatSnapshot');
+        this.entity.addChild(this.snapshotEntity); // 继承主实例变换
+        this.snapshotEntity.addComponent('gsplat', { asset });
+        const snapInst = this.snapshotEntity.gsplat.instance;
+
+        // 使用相同的排序距离计算（独立实例，独立排序缓存）
+        snapInst.meshInstance.calculateSortDistance = (meshInstance: MeshInstance, pos: Vec3, dir: Vec3) => {
+            const bound = this.localBound;
+            const mat = this.entity.getWorldTransform();
+            let maxDist;
+            for (let i = 0; i < 8; ++i) {
+                vec.x = bound.center.x + bound.halfExtents.x * (i & 1 ? 1 : -1);
+                vec.y = bound.center.y + bound.halfExtents.y * (i & 2 ? 1 : -1);
+                vec.z = bound.center.z + bound.halfExtents.z * (i & 4 ? 1 : -1);
+                mat.transformPoint(vec, vec);
+                const dist = vec.sub(pos).dot(dir);
+                if (i === 0 || dist > maxDist) {
+                    maxDist = dist;
+                }
+            }
+            return maxDist;
+        };
+
+        // 将快照实例加入 Snapshot World 图层，仅供快照相机渲染
+        // 注意：gsplat.layers 是一个图层ID数组
+        if (this.scene?.snapshotLayer) {
+            this.snapshotEntity.gsplat.layers = [this.scene.snapshotLayer.id];
+        }
+
+        // 独立实例的材质设置与主实例一致
+        const applyMaterial = (inst: any) => {
+            const { material } = inst;
+            material.blendState = blendState;
+            const { glsl } = material.shaderChunks;
+            glsl.set('gsplatVS', vertexShader);
+            glsl.set('gsplatPS', fragmentShader);
+            glsl.set('gsplatCenterVS', gsplatCenter);
+            // 构造阶段不要访问 this.scene，使用资源自带的 shBands，后续由 rebuildMaterial 覆盖
+            material.setDefine('SH_BANDS', `${(inst.resource as GSplatResource).shBands}`);
+            material.setParameter('splatState', this.stateTexture);
+            material.setParameter('splatTransform', this.transformTexture);
+            material.update();
+        };
+        applyMaterial(snapInst);
     }
 
     destroy() {
@@ -282,6 +345,10 @@ class Splat extends Element {
 
         // update sorting instance
         this.entity.gsplat.instance.sorter.setMapping(mapping);
+        // 同步快照实例的映射，保证两者删除/过滤一致
+        if (this.snapshotEntity) {
+            this.snapshotEntity.gsplat.instance.sorter.setMapping(mapping);
+        }
     }
 
     get worldTransform() {
@@ -332,6 +399,10 @@ class Splat extends Element {
 
         // we must update state in case the state data was loaded from ply
         this.updateState();
+        // 将快照克隆放到 Snapshot World 图层（构造期无法访问 scene，这里补齐）
+        if (this.snapshotEntity && this.scene?.snapshotLayer) {
+            this.snapshotEntity.gsplat.layers = [this.scene.snapshotLayer.id];
+        }
     }
 
     remove() {
@@ -385,6 +456,25 @@ class Splat extends Element {
         material.setParameter('saturation', this.saturation);
         material.setParameter('transformPalette', this.transformPalette.texture);
 
+        // 将相同参数同步到快照克隆材质，避免 getParameter() 类型风险
+        if (this.snapshotEntity) {
+            const smat = this.snapshotEntity.gsplat.instance.material;
+            smat.setParameter('mode', cameraMode === 'rings' ? 1 : 0);
+            smat.setParameter('ringSize', (selected && cameraOverlay && cameraMode === 'rings') ? 0.04 : 0);
+            smat.setParameter('selectedClr', [selectedClr.r, selectedClr.g, selectedClr.b, selectedClr.a * selectionAlpha]);
+            smat.setParameter('unselectedClr', [unselectedClr.r, unselectedClr.g, unselectedClr.b, unselectedClr.a]);
+            smat.setParameter('lockedClr', [lockedClr.r, lockedClr.g, lockedClr.b, lockedClr.a]);
+            smat.setParameter('clrOffset', [offset, offset, offset]);
+            smat.setParameter('clrScale', [
+                scale * this.tintClr.r * (1 + this.temperature),
+                scale * this.tintClr.g,
+                scale * this.tintClr.b * (1 - this.temperature),
+                this.transparency
+            ]);
+            smat.setParameter('saturation', this.saturation);
+            smat.setParameter('transformPalette', this.transformPalette.texture);
+        }
+
         if (this.visible && selected) {
             // render bounding box
             if (events.invoke('camera.bound')) {
@@ -415,6 +505,14 @@ class Splat extends Element {
             this.entity.gsplat.instance.meshInstance.setParameter('viewport', [currentRT.width, currentRT.height]);
         } else if (gd && gd.width && gd.height) {
             this.entity.gsplat.instance.meshInstance.setParameter('viewport', [gd.width, gd.height]);
+        }
+
+        // 为快照克隆设置与快照RT一致的 viewport，避免使用默认相机尺寸
+        if (this.snapshotEntity) {
+            const snapSize = events.invoke('snapshot.getRenderTargetSize');
+            if (snapSize && snapSize.width && snapSize.height) {
+                this.snapshotEntity.gsplat.instance.meshInstance.setParameter('viewport', [snapSize.width, snapSize.height]);
+            }
         }
     }
 

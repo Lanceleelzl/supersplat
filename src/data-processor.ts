@@ -486,14 +486,19 @@ class DataProcessor {
             colorTex: source.colorBuffer
         });
 
+        // 保存当前渲染目标与将用于恢复的 viewport 尺寸
+        const glDevice = device as WebglGraphicsDevice;
+        // WebglGraphicsDevice 暴露了当前 renderTarget 引用
+        const prevRt = (device as unknown as { renderTarget?: RenderTarget }).renderTarget ?? null;
+        const restoreSize = prevRt ? { width: prevRt.width, height: prevRt.height } : { width: glDevice.width, height: glDevice.height };
+
         device.setBlendState(BlendState.NOBLEND);
         drawQuadWithShader(device, dest, this.copyShader);
 
-        // Restore device to default backbuffer and viewport to avoid leaking a small viewport
-        // which can cause the main scene to render in a reduced area.
-        const glDevice = device as WebglGraphicsDevice;
-        device.setRenderTarget(null);
-        device.setViewport(0, 0, glDevice.width, glDevice.height);
+        // 恢复到调用前的渲染目标与视口尺寸，避免泄漏到主渲染通道
+        device.setRenderTarget(prevRt);
+        // 某些类型声明中没有 setViewport，使用可选调用避免 TS 报错
+        (device as any).setViewport?.(0, 0, restoreSize.width, restoreSize.height);
     }
 }
 

@@ -1,5 +1,6 @@
 import {
     CULLFACE_NONE,
+    CULLFACE_BACK,
     SEMANTIC_POSITION,
     BlendState,
     DepthState,
@@ -110,6 +111,12 @@ class Outline extends Element {
             glDevice.updateBegin();
             this.quadRender.render();
             glDevice.updateEnd();
+
+            // restore render states to safe defaults to avoid leaking to main scene
+            device.setBlendState(BlendState.NOBLEND);
+            device.setCullMode(CULLFACE_BACK);
+            device.setDepthState(DepthState.WRITEDEPTH);
+            device.setStencilState(null, null);
         });
     }
 
