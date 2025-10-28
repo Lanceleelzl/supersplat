@@ -192,6 +192,8 @@ class Splat extends Element {
                 sglsl.set('gsplatPS', fragmentShader);
                 sglsl.set('gsplatCenterVS', gsplatCenter);
                 smat.setDefine('SH_BANDS', `${Math.min(bands, (snapInst.resource as GSplatResource).shBands)}`);
+                // 在快照路径中尊重相机裁剪面（禁用Z钳制）
+                smat.setDefine('RESPECT_CLIP_PLANES', '1');
                 smat.setParameter('splatState', this.stateTexture);
                 smat.setParameter('splatTransform', this.transformTexture);
                 smat.update();
@@ -256,6 +258,10 @@ class Splat extends Element {
             material.update();
         };
         applyMaterial(snapInst);
+        // 初始构造时即为快照实例开启尊重裁剪面
+        const snapMat = snapInst.material;
+        snapMat.setDefine('RESPECT_CLIP_PLANES', '1');
+        snapMat.update();
     }
 
     destroy() {

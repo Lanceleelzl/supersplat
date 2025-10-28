@@ -227,8 +227,13 @@ bool initCenter(SplatSource source, vec3 modelCenter, out SplatCenter center) {
 
     vec4 centerProj = matrix_projection * centerView;
 
-    // ensure gaussians are not clipped by camera near and far
-    centerProj.z = clamp(centerProj.z, -abs(centerProj.w), abs(centerProj.w));
+    // By default, avoid clipping gaussians by camera near/far to preserve appearance.
+    // For specific render paths (e.g. snapshot preview), we may want to respect clip planes.
+    // Guard the original clamping with a preprocessor define so it can be disabled per-material.
+    #ifndef RESPECT_CLIP_PLANES
+        // ensure gaussians are not clipped by camera near and far
+        centerProj.z = clamp(centerProj.z, -abs(centerProj.w), abs(centerProj.w));
+    #endif
 
     center.view = centerView.xyz / centerView.w;
     center.proj = centerProj;
