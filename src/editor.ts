@@ -1305,6 +1305,15 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         }
     });
 
+    // 拖拽过程中实时同步巡检模型（基于 pivot.moved）
+    events.on('pivot.moved', () => {
+        const sel = events.invoke('selection');
+        if (sel && (sel as any).isInspectionModel) {
+            events.fire('marker.transform', sel);
+            // 无需日志刷屏，避免控制台大量输出
+        }
+    });
+
     // 导出所有巡检点位的参数 - 显示导出面板
     events.on('inspection.exportParams', () => {
         events.fire('inspection.showExportPanel');

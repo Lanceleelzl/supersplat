@@ -1,14 +1,14 @@
 import { Container, Element, NumericInput, Label, Button } from '@playcanvas/pcui';
 import {
     Entity,
-    CameraComponent,
-    RenderTarget,
-    Texture,
-    PIXELFORMAT_RGBA8,
-    FILTER_LINEAR,
-    ADDRESS_CLAMP_TO_EDGE,
     Vec3,
-    Quat
+    Quat,
+    Texture,
+    RenderTarget,
+    ADDRESS_CLAMP_TO_EDGE,
+    FILTER_NEAREST,
+    PIXELFORMAT_RGBA8,
+    PIXELFORMAT_DEPTH
 } from 'playcanvas';
 
 import { ElementType } from '../element';
@@ -29,9 +29,7 @@ const createSvg = (svgString: string) => {
 class SnapshotView extends Container {
     private events: Events;
     private scene: Scene;
-    private canvas: HTMLCanvasElement;
     private snapshotCamera: Entity;
-    private renderTarget: RenderTarget;
     private fovInput: NumericInput;
     private nearInput: NumericInput;
     private farInput: NumericInput;
@@ -53,6 +51,16 @@ class SnapshotView extends Container {
     private sensorWidthInput?: NumericInput;
     // 防抖：程序设置焦距输入时不触发计算
     private suppressFocalChange = false;
+    // 视口锁定：仅通过外部巡检相机与点位模型控制视角
+    private viewLocked: boolean = true;
+
+    // 面板内嵌预览（离屏）
+    private previewCanvas?: HTMLCanvasElement;
+    private previewCtx?: CanvasRenderingContext2D;
+    private previewRT?: RenderTarget;
+    private previewWorkRT?: RenderTarget;
+    private previewData?: Uint8Array; // RGBA8
+    private previewRafId?: number;
 
     constructor(events: Events, scene: Scene, tooltips?: Tooltips, args = {}) {
         super({
@@ -118,7 +126,9 @@ class SnapshotView extends Container {
                 <div class="snapshot-close-container"></div>
             </div>
             <div class="snapshot-content">
-                <canvas class="snapshot-canvas" width="320" height="240"></canvas>
+                <div class="snapshot-preview-container" style="padding:8px 8px 0 8px;">
+                    <canvas class="snapshot-preview" style="display:block; width:100%; max-width:360px; border:1px solid #4a90e2; border-radius:4px; box-shadow:0 0 0 1px rgba(74,144,226,0.2);"></canvas>
+                </div>
                 <div class="camera-controls">
                     <div class="control-section">
                         <h4>相机参数</h4>
@@ -137,19 +147,17 @@ class SnapshotView extends Container {
         closeButton.dom.appendChild(createSvg(closeSvg));
         closeContainer.appendChild(closeButton.dom);
 
-        // 获取canvas元素
-        this.canvas = this.dom.querySelector('.snapshot-canvas') as HTMLCanvasElement;
-
-        // 设置canvas样式，确保与相机参数面板宽度一致
-        this.canvas.style.display = 'block';
-        this.canvas.style.width = '100%';  // 改为100%以匹配容器宽度
-        this.canvas.style.height = '240px';
-        this.canvas.style.border = '1px solid #555';
-        this.canvas.style.borderRadius = '4px';
-        this.canvas.style.background = '#1a1a1a';
-
         // 创建相机参数控制面板
         this.createCameraControls();
+        // 显示相机参数控制面板，便于交互调参
+        // （如需锁定模式，可在外部通过CSS或事件开关实现）
+
+        // 绑定预览画布
+        const canvas = this.dom.querySelector('.snapshot-preview') as HTMLCanvasElement;
+        if (canvas) {
+            this.previewCanvas = canvas;
+            this.previewCtx = canvas.getContext('2d');
+        }
     }
 
     private createCameraControls() {
@@ -193,6 +201,8 @@ class SnapshotView extends Container {
 
         aspectToggle.append(fourThreeBtn);
         aspectToggle.append(sixteenNineBtn);
+        // 记录按钮引用，便于切换激活态
+        this.aspectButtons = { fourThree: fourThreeBtn, sixteenNine: sixteenNineBtn };
 
         fovRow.append(fovLabel);
         fovRow.append(this.fovInput);
@@ -338,7 +348,9 @@ class SnapshotView extends Container {
             }
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
-            this.forceRenderSnapshot();
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
+            }
         });
         sensorRow.append(sensorLabel);
         sensorRow.append(this.sensorWidthInput);
@@ -417,6 +429,9 @@ class SnapshotView extends Container {
         this.setAspect('4:3');
         // 初始化派生FOV显示
         this.updateDerivedFovs();
+
+        // 始终绑定参数输入控件的监听，使“视口锁定”仅影响鼠标操作
+        this.setupCameraControlListeners();
     }
 
     private setupDragFunctionality() {
@@ -537,31 +552,151 @@ class SnapshotView extends Container {
         const mainCamera = this.scene.camera.entity.camera;
         this.snapshotCamera.camera.toneMapping = mainCamera.toneMapping;
 
-        // 创建渲染目标（按当前比例）
-        const colorBuffer = new Texture(this.scene.app.graphicsDevice, {
-            width: this.snapshotWidth,
-            height: this.snapshotHeight,
-            format: PIXELFORMAT_RGBA8,
-            minFilter: FILTER_LINEAR,
-            magFilter: FILTER_LINEAR,
-            addressU: ADDRESS_CLAMP_TO_EDGE,
-            addressV: ADDRESS_CLAMP_TO_EDGE
-        });
+        // 使用离屏渲染目标，避免与主画布混合冲突
+        this.snapshotCamera.camera.clearColorBuffer = true;
+        this.snapshotCamera.camera.clearDepthBuffer = true;
+        const mainCam = this.scene.camera.entity.camera;
+        // Render the snapshot camera before the main camera, so the main camera
+        // can finalize and restore viewport / perform the final blit last.
+        this.snapshotCamera.camera.priority = (mainCam.priority ?? 0) - 1;
+        this.snapshotCamera.camera.enabled = false;
 
-        this.renderTarget = new RenderTarget({
-            colorBuffer: colorBuffer,
-            depth: true,
-            flipY: true,
-            autoResolve: false
-        });
-
-        // 设置相机的渲染目标
-        this.snapshotCamera.camera.renderTarget = this.renderTarget;
+        // 构建预览离屏RT
+        this.rebuildPreviewTargets();
 
         // 将相机添加到场景
         this.scene.app.root.addChild(this.snapshotCamera);
 
         console.log('快照预览：独立相机创建完成，已配置渲染层和光照');
+    }
+
+    // 创建/重建离屏渲染目标与画布尺寸
+    private rebuildPreviewTargets() {
+        const width = this.snapshotWidth;
+        const height = this.snapshotHeight;
+
+        // 调整画布像素尺寸（注意CSS与像素尺寸区别）
+        if (this.previewCanvas) {
+            this.previewCanvas.width = width;
+            this.previewCanvas.height = height;
+            // 自适应容器宽度不变，由CSS控制
+        }
+
+        // 释放旧资源
+        if (this.previewRT) {
+            try {
+                this.previewRT.destroyTextureBuffers();
+            } catch {}
+            try {
+                this.previewRT.destroy();
+            } catch {}
+            this.previewRT = undefined;
+        }
+        if (this.previewWorkRT) {
+            try {
+                this.previewWorkRT.destroyTextureBuffers?.();
+            } catch {}
+            try {
+                this.previewWorkRT.destroy();
+            } catch {}
+            this.previewWorkRT = undefined;
+        }
+
+        const device = this.scene.graphicsDevice;
+        const createTexture = (name: string, w: number, h: number, format: number) => new Texture(device, {
+            name,
+            width: w,
+            height: h,
+            format,
+            mipmaps: false,
+            minFilter: FILTER_NEAREST,
+            magFilter: FILTER_NEAREST,
+            addressU: ADDRESS_CLAMP_TO_EDGE,
+            addressV: ADDRESS_CLAMP_TO_EDGE
+        });
+
+        const colorBuffer = createTexture('snapshotColor', width, height, PIXELFORMAT_RGBA8);
+        const depthBuffer = createTexture('snapshotDepth', width, height, PIXELFORMAT_DEPTH);
+        this.previewRT = new RenderTarget({
+            colorBuffer,
+            depthBuffer,
+            flipY: false,
+            autoResolve: false
+        });
+
+        const workColorBuffer = createTexture('snapshotWorkColor', width, height, PIXELFORMAT_RGBA8);
+        this.previewWorkRT = new RenderTarget({
+            colorBuffer: workColorBuffer,
+            depth: false,
+            autoResolve: false
+        });
+
+        // 关联相机渲染到预览RT
+        if (this.snapshotCamera?.camera) {
+            this.snapshotCamera.camera.renderTarget = this.previewRT;
+            this.snapshotCamera.camera.horizontalFov = width > height;
+        }
+
+        // 申请CPU读缓冲
+        this.previewData = new Uint8Array(width * height * 4);
+    }
+
+    // 将离屏渲染结果绘制到面板canvas
+    private async drawPreview() {
+        if (!this.previewCtx || !this.previewRT || !this.previewWorkRT || !this.previewData) return;
+        const width = this.previewRT.width;
+        const height = this.previewRT.height;
+
+        // 拷贝到非MSAA工作RT
+        try {
+            this.scene.dataProcessor.copyRt(this.previewRT, this.previewWorkRT);
+        } catch {}
+
+        // 读取像素（RGBA8）
+        try {
+            await this.previewWorkRT.colorBuffer.read(0, 0, width, height, {
+                renderTarget: this.previewWorkRT,
+                data: this.previewData
+            });
+        } catch (e) {
+            // 读失败通常是帧尚未完成或设备限制，忽略本帧
+            return;
+        }
+
+        // 垂直翻转缓冲（OpenGL坐标与Canvas坐标差异）
+        // 注意：必须使用拷贝缓冲而不是subarray视图，避免就地覆盖造成对称镜像
+        for (let y = 0; y < Math.floor(height / 2); y++) {
+            const top = y * width * 4;
+            const bottom = (height - y - 1) * width * 4;
+            const temp = this.previewData.slice(top, top + width * 4); // 独立拷贝
+            this.previewData.copyWithin(top, bottom, bottom + width * 4);
+            this.previewData.set(temp, bottom);
+        }
+
+        const pixels = new Uint8ClampedArray(this.previewData.buffer);
+        const imageData = new ImageData(pixels, width, height);
+        this.previewCtx.putImageData(imageData, 0, 0);
+    }
+
+    private startPreviewLoop() {
+        const loop = async () => {
+            // 请求一帧渲染
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
+            }
+            await this.drawPreview();
+            this.previewRafId = requestAnimationFrame(loop);
+        };
+        if (!this.previewRafId) {
+            this.previewRafId = requestAnimationFrame(loop);
+        }
+    }
+
+    private stopPreviewLoop() {
+        if (this.previewRafId) {
+            cancelAnimationFrame(this.previewRafId);
+            this.previewRafId = undefined;
+        }
     }
 
     private setupEventListeners() {
@@ -572,6 +707,8 @@ class SnapshotView extends Container {
             const snapshotEnabled = this.events.invoke('snapshot.isEnabled');
             this.selectedMarker = marker;
             this.updateCameraFromMarker();
+            // 同步锁定视口下的显示数值
+            this.syncInputsFromCamera();
 
             // 快照预览开启时打开面板并渲染
             if (snapshotEnabled) {
@@ -584,8 +721,10 @@ class SnapshotView extends Container {
             if (this.selectedMarker === marker) {
                 console.log('快照预览：marker位置变化，更新相机');
                 this.updateCameraFromMarker();
-                if (!this.hidden) {
-                    this.renderSnapshot();
+                this.syncInputsFromCamera();
+                // 参数与视椎体更新后请求一次渲染
+                if (this.scene.forceRender !== undefined) {
+                    this.scene.forceRender = true;
                 }
             }
         });
@@ -652,8 +791,9 @@ class SnapshotView extends Container {
                     this.scene.forceRender = true;
                 }
             }
-            if (!this.hidden) {
-                this.renderSnapshot();
+            // 参数与视椎体更新后请求一次渲染
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
             }
         });
 
@@ -757,124 +897,15 @@ class SnapshotView extends Container {
         }
     }
 
-    private renderSnapshot() {
-        if (!this.snapshotCamera || !this.renderTarget || !this.canvas) {
-            console.warn('快照预览：相机或渲染目标未初始化');
-            return;
-        }
-
-        try {
-            // 临时保存主相机的渲染目标
-            const mainCamera = this.scene.camera.entity.camera;
-            const originalRenderTarget = mainCamera.renderTarget;
-
-            // 保存所有高斯泼溅模型的视口参数，防止被快照渲染污染
-            const splatViewportBackup = new Map<any, any>();
-            const splats = this.scene.getElementsByType(ElementType.splat);
-            splats.forEach((splat: any) => {
-                try {
-                    const instance = splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance;
-                    const meshInstance = instance && instance.meshInstance;
-                    if (meshInstance) {
-                        const currentViewport = meshInstance.getParameter('viewport');
-                        if (Array.isArray(currentViewport) || (currentViewport && typeof (currentViewport as any).length === 'number')) {
-                            splatViewportBackup.set(splat, Array.from(currentViewport as any));
-                        } else {
-                            splatViewportBackup.set(splat, currentViewport ?? null);
-                        }
-                        // 设置新的视口（示例：全屏覆盖），实际逻辑保持不变
-                        meshInstance.setParameter('viewport', [0, 0, this.renderTarget.width, this.renderTarget.height]);
-                    }
-                } catch (err) {
-                // 忽略单个元素的参数异常，保证主流程不被中断
-                }
-            });
-
-            // 设置快照相机的渲染目标
-            this.snapshotCamera.camera.renderTarget = this.renderTarget;
-
-            // 使用PlayCanvas的正确渲染方式
-            const app = this.scene.app;
-
-            // 临时设置快照相机为主相机进行渲染（使用 any 规避类型限制）
-            const originalCamera = (app.scene as any).defaultCamera;
-            (app.scene as any).defaultCamera = this.snapshotCamera.camera;
-
-            // 执行渲染
-            app.render();
-
-            // 恢复原始相机
-            (app.scene as any).defaultCamera = originalCamera;
-
-            // 保持快照相机的渲染目标绑定，以确保视椎体按快照比例计算
-            // 注意：不需要清空renderTarget，否则视椎体会回落到主画布比例
-
-            // 恢复所有高斯泼溅模型的视口参数
-            splatViewportBackup.forEach((viewport, splat) => {
-                if (splat.entity && splat.entity.gsplat && splat.entity.gsplat.instance) {
-                    const meshInstance = splat.entity.gsplat.instance.meshInstance;
-                    meshInstance.setParameter('viewport', viewport);
-                }
-            });
-
-            // 将渲染结果复制到canvas
-            this.copyRenderTargetToCanvas();
-
-            console.log('快照预览：渲染完成，已恢复高斯泼溅模型视口参数');
-        } catch (error) {
-            console.error('快照预览：渲染失败', error);
-        }
-    }
-
-    private copyRenderTargetToCanvas() {
-        try {
-            const gl = (this.scene.app.graphicsDevice as any).gl;
-            const ctx = this.canvas.getContext('2d');
-
-            if (ctx && gl && this.renderTarget) {
-                const w = this.renderTarget.width;
-                const h = this.renderTarget.height;
-
-                // 绑定渲染目标的帧缓冲区
-                gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget.impl._glFrameBuffer);
-
-                // 读取像素数据
-                const pixels = new Uint8Array(w * h * 4);
-                gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-                // 创建ImageData
-                const imageData = new ImageData(new Uint8ClampedArray(pixels), w, h);
-
-                // 清除canvas
-                ctx.clearRect(0, 0, w, h);
-
-                // 翻转Y轴并绘制到canvas
-                ctx.save();
-                ctx.scale(1, -1);
-                ctx.translate(0, -h);
-                ctx.putImageData(imageData, 0, 0);
-                ctx.restore();
-
-                // 恢复默认帧缓冲区
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            }
-        } catch (error) {
-            console.error('快照预览：复制渲染目标到canvas失败', error);
-        }
-    }
-
-    private forceRenderSnapshot() {
-        if (!this.hidden) {
-            this.renderSnapshot();
-        }
-        if (this.scene.forceRender !== undefined) {
-            this.scene.forceRender = true;
-        }
-    }
-
     show() {
         this.hidden = false;
         console.log('快照预览：窗口显示');
+
+        // 启用快照相机并启动预览循环（离屏）
+        if (this.snapshotCamera?.camera) {
+            this.snapshotCamera.camera.enabled = true;
+        }
+        this.startPreviewLoop();
 
         // 显示视椎体可视化（需满足全局开关）
         const frustumEnabled = this.events.invoke('frustum.isEnabled');
@@ -887,6 +918,12 @@ class SnapshotView extends Container {
     hide() {
         this.hidden = true;
         console.log('快照预览：窗口隐藏');
+
+        // 禁用快照相机并停止预览循环
+        if (this.snapshotCamera?.camera) {
+            this.snapshotCamera.camera.enabled = false;
+        }
+        this.stopPreviewLoop();
 
         const frustumEnabled = this.events.invoke('frustum.isEnabled');
         if (frustumEnabled && this.selectedMarker && this.snapshotCamera) {
@@ -932,29 +969,39 @@ class SnapshotView extends Container {
 
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
-            this.forceRenderSnapshot();
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
+            }
         });
 
-        // 近裁剪面控制
+        // 近裁剪面控制（锁定视口下也允许更新裁剪面）
         this.nearInput.on('change', (value: number) => {
             if (this.snapshotCamera?.camera) {
                 console.log('快照预览：设置nearClip为', value);
                 this.snapshotCamera.camera.nearClip = value;
                 console.log('快照预览：当前相机nearClip为', this.snapshotCamera.camera.nearClip);
-                this.renderSnapshot();
                 this.updateFrustumVisualization();
+                if (this.scene.forceRender !== undefined) {
+                    this.scene.forceRender = true;
+                }
             }
+            // 同步显示为最新相机值
+            this.syncInputsFromCamera();
         });
 
-        // 远裁剪面控制
+        // 远裁剪面控制（锁定视口下也允许更新裁剪面）
         this.farInput.on('change', (value: number) => {
             if (this.snapshotCamera?.camera) {
                 console.log('快照预览：设置farClip为', value);
                 this.snapshotCamera.camera.farClip = value;
                 console.log('快照预览：当前相机farClip为', this.snapshotCamera.camera.farClip);
-                this.renderSnapshot();
                 this.updateFrustumVisualization();
+                if (this.scene.forceRender !== undefined) {
+                    this.scene.forceRender = true;
+                }
             }
+            // 同步显示为最新相机值
+            this.syncInputsFromCamera();
         });
 
         // 焦距控制（通过调整水平FOV实现）
@@ -978,7 +1025,9 @@ class SnapshotView extends Container {
 
             this.updateDerivedFovs();
             this.updateFrustumVisualization();
-            this.forceRenderSnapshot();
+            if (this.scene.forceRender !== undefined) {
+                this.scene.forceRender = true;
+            }
         });
     }
 
@@ -994,31 +1043,37 @@ class SnapshotView extends Container {
     }
 
     private setLockMode(mode: 'horizontal' | 'diagonal') {
-        this.lockMode = mode;
+        // 切换锁定模式为幂等：不修改相机的实际水平FOV，仅改变输入框的解释与显示
         if (!this.snapshotCamera?.camera) return;
 
         const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
-        const inputFov = Number(this.fovInput?.value ?? 57.4);
+
+        // 如果重复点击同一模式，仅同步显示，不做转换
+        const wasMode = this.lockMode;
+        this.lockMode = mode;
+
+        const hDeg = this.snapshotCamera.camera.fov; // 始终以水平FOV存储
         if (mode === 'horizontal') {
-            // 解释输入为水平FOV
-            this.snapshotCamera.camera.horizontalFov = true;
-            this.snapshotCamera.camera.fov = inputFov;
+            // 显示为水平FOV
+            this.fovInput && (this.fovInput.value = parseFloat(hDeg.toFixed(1)));
         } else {
-            // 解释输入为对角FOV，转换为水平FOV
-            const dRad = inputFov * Math.PI / 180;
-            const hRad = 2 * Math.atan(Math.tan(dRad / 2) / Math.sqrt(1 + 1 / (aspect * aspect)));
-            const hDeg = hRad * 180 / Math.PI;
-            this.snapshotCamera.camera.horizontalFov = true;
-            this.snapshotCamera.camera.fov = hDeg;
+            // 显示为对角FOV（由水平FOV推导）
+            const hRad = hDeg * Math.PI / 180;
+            const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
+            this.fovInput && (this.fovInput.value = parseFloat(dDeg.toFixed(1)));
         }
-        // 同步焦距显示依据单位模式
-        const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
+
+        // 同步焦距显示依据单位模式（基于水平FOV）
+        const hRadNow = hDeg * Math.PI / 180;
         const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
         const eqFocal = realFocal * 36 / this.sensorWidthMm;
         this.focalInput && (this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1)));
+
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
-        this.forceRenderSnapshot();
+        if (this.scene.forceRender !== undefined) {
+            this.scene.forceRender = true;
+        }
     }
 
     private applyPreset(key: string) {
@@ -1110,7 +1165,28 @@ class SnapshotView extends Container {
         this.sensorWidthInput && (this.sensorWidthInput.value = Number(this.sensorWidthMm.toFixed(2)));
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
-        this.forceRenderSnapshot();
+        if (this.scene.forceRender !== undefined) {
+            this.scene.forceRender = true;
+        }
+    }
+
+    // 同步UI控件的显示为当前相机数值（在锁定视口下使用）
+    private syncInputsFromCamera() {
+        const cam = this.snapshotCamera?.camera;
+        if (!cam) return;
+        if (this.fovInput) {
+            const aspect = this.currentAspect === '16:9' ? (16 / 9) : (4 / 3);
+            if (this.lockMode === 'horizontal') {
+                this.fovInput.value = parseFloat(cam.fov.toFixed(1));
+            } else {
+                const hRad = cam.fov * Math.PI / 180;
+                const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
+                this.fovInput.value = parseFloat(dDeg.toFixed(1));
+            }
+        }
+        if (this.nearInput) this.nearInput.value = cam.nearClip;
+        if (this.farInput) this.farInput.value = cam.farClip;
+        this.updateDerivedFovs();
     }
 
     private updateFrustumVisualization() {
@@ -1131,9 +1207,23 @@ class SnapshotView extends Container {
 
     private setAspect(aspect: '4:3' | '16:9') {
         this.currentAspect = aspect;
-        // 高度根据宽度320和比例反算
-        this.snapshotWidth = 320;
-        this.snapshotHeight = aspect === '4:3' ? Math.round(320 * 3 / 4) : Math.round(320 * 9 / 16);
+        // 根据比例更新预览尺寸（保持宽度，调整高度）
+        const baseWidth = 320;
+        const height = aspect === '16:9' ? Math.round(baseWidth * 9 / 16) : Math.round(baseWidth * 3 / 4);
+        this.snapshotWidth = baseWidth;
+        this.snapshotHeight = height;
+        this.rebuildPreviewTargets();
+
+        // 确保相机开启与预览循环刷新，避免切换比例后画面暂时丢失
+        if (!this.hidden && this.snapshotCamera?.camera) {
+            this.snapshotCamera.camera.enabled = true;
+        }
+        // 重启预览循环以适配新的RT与像素尺寸
+        this.stopPreviewLoop();
+        this.startPreviewLoop();
+        if (this.scene.forceRender !== undefined) {
+            this.scene.forceRender = true;
+        }
 
         // 在对角锁定时，根据当前输入的对角FOV保持不变并转换相机水平FOV
         if (this.lockMode === 'diagonal' && this.fovInput && this.snapshotCamera?.camera) {
@@ -1143,40 +1233,7 @@ class SnapshotView extends Container {
             this.snapshotCamera.camera.fov = hRad * 180 / Math.PI;
         }
 
-        // 更新画布尺寸（属性与样式）
-        if (this.canvas) {
-            this.canvas.width = this.snapshotWidth;
-            this.canvas.height = this.snapshotHeight;
-            this.canvas.style.width = '100%';
-            this.canvas.style.height = `${this.snapshotHeight}px`;
-        }
-
-        // 重建渲染目标以匹配新比例
-        try {
-            if (this.renderTarget) {
-                this.renderTarget.destroy();
-            }
-            const colorBuffer = new Texture(this.scene.app.graphicsDevice, {
-                width: this.snapshotWidth,
-                height: this.snapshotHeight,
-                format: PIXELFORMAT_RGBA8,
-                minFilter: FILTER_LINEAR,
-                magFilter: FILTER_LINEAR,
-                addressU: ADDRESS_CLAMP_TO_EDGE,
-                addressV: ADDRESS_CLAMP_TO_EDGE
-            });
-            this.renderTarget = new RenderTarget({
-                colorBuffer,
-                depth: true,
-                flipY: true,
-                autoResolve: false
-            });
-            if (this.snapshotCamera?.camera) {
-                this.snapshotCamera.camera.renderTarget = this.renderTarget;
-            }
-        } catch (e) {
-            console.warn('快照预览：切换比例时重建渲染目标失败', e);
-        }
+        // 更新面板canvas尺寸已在 rebuildPreviewTargets 中完成
 
         // 更新按钮激活态
         if (this.aspectButtons) {
@@ -1194,35 +1251,29 @@ class SnapshotView extends Container {
             activeStyle(sixteenNine, aspect === '16:9');
         }
 
-        // 重新渲染与刷新视椎体（仅在相机与渲染目标就绪时）
-        if (this.snapshotCamera?.camera && this.renderTarget) {
-            this.renderSnapshot();
+        // 刷新视椎体与派生FOV（仅在相机就绪时）
+        if (this.snapshotCamera?.camera) {
             this.updateFrustumVisualization();
             this.updateDerivedFovs();
             if (this.scene.forceRender !== undefined) {
                 this.scene.forceRender = true;
             }
-        } else {
-            // 初始化阶段尚未创建相机/渲染目标，延后刷新以避免报错
-        }
-        }
-
-        destroy() {
-            // 清理资源
-            if (this.snapshotCamera) {
-                this.snapshotCamera.destroy();
-            }
-            if (this.renderTarget) {
-                this.renderTarget.destroy();
-            }
-
-            // 移除DOM元素
-            if (this.dom && this.dom.parentNode) {
-                this.dom.parentNode.removeChild(this.dom);
-            }
-
-            super.destroy();
         }
     }
 
-    export { SnapshotView };
+    destroy() {
+        // 清理资源
+        if (this.snapshotCamera) {
+            this.snapshotCamera.destroy();
+        }
+
+        // 移除DOM元素
+        if (this.dom && this.dom.parentNode) {
+            this.dom.parentNode.removeChild(this.dom);
+        }
+
+        super.destroy();
+    }
+}
+
+export { SnapshotView };

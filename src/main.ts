@@ -30,6 +30,7 @@ import { registerTransformHandlerEvents } from './transform-handler';
 import { EditorUI } from './ui/editor';
 import { ExcelExporter } from './ui/excel-exporter';
 import { SnapshotView } from './ui/snapshot-view';
+import { InspectionViewport } from './ui/inspection-viewport';
 
 
 declare global {
@@ -395,6 +396,20 @@ const main = async () => {
     // 监听快照窗口关闭事件
     events.on('snapshot.close', () => {
         snapshotView.hide();
+    });
+
+    // ============================
+    // 巡检视口（第二相机）初始化
+    // ============================
+    const inspectionViewport = new InspectionViewport(events, scene);
+    editorUI.canvasContainer.append(inspectionViewport);
+
+    // 巡检视口默认开启，可通过事件开关
+    let inspectionViewportEnabled = true;
+    events.function('inspectionViewport.isEnabled', () => inspectionViewportEnabled);
+    events.on('inspectionViewport.toggle', () => {
+        inspectionViewportEnabled = !inspectionViewportEnabled;
+        // 组件内部已处理 hidden 与相机启用切换
     });
 
     // 处理加载参数

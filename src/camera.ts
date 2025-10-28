@@ -557,6 +557,11 @@ class Camera extends Element {
 
         // copy render target
         if (!this.suppressFinalBlit) {
+            // Ensure full-screen viewport before the final blit.
+            // Some auxiliary cameras (offscreen or overlay) may leave a smaller viewport active,
+            // which causes the main image to appear in a reduced bottom-left rectangle.
+            const { width, height } = this.scene.targetSize ?? { width: device.width, height: device.height };
+            device.setViewport(0, 0, width, height);
             device.copyRenderTarget(renderTarget, null, true, false);
         }
     }

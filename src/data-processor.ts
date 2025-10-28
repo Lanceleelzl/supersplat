@@ -488,6 +488,12 @@ class DataProcessor {
 
         device.setBlendState(BlendState.NOBLEND);
         drawQuadWithShader(device, dest, this.copyShader);
+
+        // Restore device to default backbuffer and viewport to avoid leaking a small viewport
+        // which can cause the main scene to render in a reduced area.
+        const glDevice = device as WebglGraphicsDevice;
+        device.setRenderTarget(null);
+        device.setViewport(0, 0, glDevice.width, glDevice.height);
     }
 }
 

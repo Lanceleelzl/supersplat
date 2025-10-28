@@ -405,13 +405,16 @@ class Splat extends Element {
 
         this.entity.enabled = this.visible;
 
-        // Temp hack: override the splat viewport size because we're rendering to an offscreen
-        // render target and the engine currently always takes the backbuffer size.
-        // this workaround can be removed once https://github.com/playcanvas/engine/pull/7425 is
-        // available
-        const rt = this.scene.camera.entity.camera.renderTarget;
-        if (rt) {
-            this.entity.gsplat.instance.meshInstance.setParameter('viewport', [rt.width, rt.height]);
+        // viewport 尺寸根据当前正在渲染的默认相机来设置，避免离屏渲染影响主场景
+        // 当 defaultCamera 绑定了 renderTarget 时，使用其尺寸；否则使用后备缓冲大小
+        const app: any = this.scene.app;
+        const currentCam = app?.scene?.defaultCamera;
+        const gd: any = this.scene.app.graphicsDevice;
+        const currentRT = currentCam && currentCam.renderTarget;
+        if (currentRT) {
+            this.entity.gsplat.instance.meshInstance.setParameter('viewport', [currentRT.width, currentRT.height]);
+        } else if (gd && gd.width && gd.height) {
+            this.entity.gsplat.instance.meshInstance.setParameter('viewport', [gd.width, gd.height]);
         }
     }
 
