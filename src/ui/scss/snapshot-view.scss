@@ -4,7 +4,7 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 360px;
+    width: 320px; // 与视口面板一致
     max-width: calc(100vw - 40px);
     height: auto;
     max-height: calc(100vh - 40px);
@@ -47,14 +47,14 @@
 // 移除底板：不再使用 snapshot-content 容器，转为由具体元素控制间距
 
 .snapshot-preview-wrap {
-    padding: 3px 8px; // 上下3px，左右8px 留白
+    padding: 3px; // 四边3px留白
     display: flex;
     justify-content: center; // 水平居中canvas
 }
 
 .snapshot-preview {
     display: block;
-    width: auto;
+    width: 100%; // 填满容器宽度
     max-width: 100%;
 }
 
@@ -95,7 +95,7 @@
                 align-items: center;
 
                 .transform-label {
-                    width: 70px;
+                    width: 110px; // 扩大标签占位，避免中文被截断（如“传感器宽度”）
                     flex-shrink: 0;
                     flex-grow: 0;
                     margin: 0px;
@@ -107,6 +107,23 @@
 
                 .transform-expand {
                     flex-grow: 1;
+                }
+
+                // 比例切换按钮容器不缩小，确保按钮文本完整显示
+                .aspect-toggle {
+                    flex-shrink: 0;
+
+                    // 比例按钮文字水平居中
+                    .pcui-button {
+                        text-align: center;
+                    }
+
+                    // 激活态使用橙色，高亮当前选择
+                    .pcui-button.pcui-button-active {
+                        background-color: #ff8a00 !important;
+                        border-color: #ff8a00 !important;
+                        color: #fff !important;
+                    }
                 }
 
                 .pcui-label {
@@ -125,11 +142,13 @@
                 margin: 0px;
                 height: 22px;
                 line-height: 22px;
+                width: 100%; // 让数值输入在展开区域内撑满，避免文本被挤压
 
                 & > input {
                     padding: 0px;
                     margin: 0px 0px 0px 4px;
                     height: 22px;
+                    width: 100%;
                 }
             }
 
@@ -137,11 +156,13 @@
                 margin: 0px;
                 height: 22px;
                 line-height: 22px;
+                width: 100%;
 
                 & > input {
                     padding: 0px;
                     margin: 0px 0px 0px 4px;
                     height: 22px;
+                    width: 100%;
                 }
             }
 
@@ -149,5 +170,38 @@
             .pcui-numeric-input-slider-control {
                 // 使用默认样式，不添加额外的对齐设置
             }
+        }
+
+        // 统一控制按钮容器与按钮尺寸/间距
+        .control-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-buttons .pcui-button {
+            height: 22px;
+            line-height: 22px;
+            padding: 0 6px;
+            min-width: 48px;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        // 比例切换按钮（4:3 / 16:9）更紧凑的宽度与间距
+        .aspect-toggle.control-buttons {
+            gap: 6px;
+        }
+
+        .aspect-toggle.control-buttons .pcui-button {
+            min-width: 48px;
+            padding: 0 6px;
+        }
+
+        // 按钮文本不换行，避免被压缩
+        .pcui-button {
+            white-space: nowrap;
         }
     }

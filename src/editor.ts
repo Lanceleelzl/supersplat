@@ -1391,7 +1391,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                     rowData['水平FOV(°)'] = (snapshotSettings.hFovDeg !== undefined) ? Number(snapshotSettings.hFovDeg.toFixed(1)) : '';
                     rowData['对角FOV(°)'] = (snapshotSettings.dFovDeg !== undefined) ? Number(snapshotSettings.dFovDeg.toFixed(1)) : '';
                     rowData['传感器宽度(mm)'] = (snapshotSettings.sensorWidthMm !== undefined) ? Number(snapshotSettings.sensorWidthMm.toFixed(2)) : '';
-                    rowData['焦距单位'] = snapshotSettings.unitMode === 'equivalent' ? '等效(mm)' : '真实(mm)';
+                    rowData['焦距模式'] = snapshotSettings.unitMode === 'equivalent' ? '等效(mm)' : '真实(mm)';
                     rowData['焦距'] = (snapshotSettings.focal !== undefined) ? Number(snapshotSettings.focal.toFixed(1)) : '';
                 }
 

@@ -138,11 +138,10 @@ class SnapshotView extends Container {
                 <div class="panel-header-spacer"></div>
             </div>
             <div class="snapshot-preview-wrap">
-                <canvas class="snapshot-preview" style="display:block; width:auto; max-width:100%;"></canvas>
+                <canvas class="snapshot-preview" style="display:block; width:100%; max-width:100%;"></canvas>
             </div>
             <div class="camera-controls">
                 <div class="control-section">
-                    <h4>相机参数</h4>
                 </div>
             </div>
         `;
@@ -265,9 +264,8 @@ class SnapshotView extends Container {
 
         // 新增：比例切换按钮（4:3 / 16:9）
         const aspectToggle = new Container({ class: 'aspect-toggle' });
-        aspectToggle.dom.style.display = 'flex';
-        aspectToggle.dom.style.gap = '8px';
-        aspectToggle.dom.style.marginLeft = '8px';
+        aspectToggle.class.add('control-buttons');
+        aspectToggle.dom.style.marginLeft = '4px';
 
         const fourThreeBtn = new Button({ class: ['pcui-button', 'pcui-button-active'], text: '4:3' });
         const sixteenNineBtn = new Button({ class: 'pcui-button', text: '16:9' });
@@ -359,10 +357,11 @@ class SnapshotView extends Container {
 
         // 新增：焦距单位切换（等效/真实）
         const unitRow = new Container({ class: 'transform-row' });
-        const unitLabel = new Label({ class: 'transform-label', text: '焦距单位' });
+        const unitLabel = new Label({ class: 'transform-label', text: '焦距模式' });
         const unitBtns = new Container({ class: 'transform-expand' });
         unitBtns.dom.style.display = 'flex';
         unitBtns.dom.style.gap = '8px';
+        unitBtns.class.add('control-buttons');
 
         const unitEqBtn = new Button({ class: ['pcui-button', 'pcui-button-active'], text: '等效' });
         const unitRealBtn = new Button({ class: 'pcui-button', text: '真实' });
@@ -473,9 +472,9 @@ class SnapshotView extends Container {
         const lockLabel = new Label({ class: 'transform-label', text: 'FOV 锁定' });
         const lockBtns = new Element({ class: 'transform-expand' });
         lockBtns.dom.innerHTML = `
-            <div style="display:flex; gap:8px;">
-                <button id="lock-hfov" class="pcui-button pcui-button-active" style="border:1px solid #555; border-radius:4px; padding:2px 6px; cursor:pointer;">水平</button>
-                <button id="lock-dfov" class="pcui-button" style="border:1px solid #555; border-radius:4px; padding:2px 6px; cursor:pointer;">对角</button>
+            <div class="control-buttons">
+                <button id="lock-hfov" class="pcui-button pcui-button-active">水平</button>
+                <button id="lock-dfov" class="pcui-button">对角</button>
             </div>`;
         const lockHFOV = lockBtns.dom.querySelector('#lock-hfov') as HTMLButtonElement;
         const lockDFOV = lockBtns.dom.querySelector('#lock-dfov') as HTMLButtonElement;
@@ -494,16 +493,17 @@ class SnapshotView extends Container {
         lockRow.append(lockLabel);
         lockRow.append(lockBtns);
 
-        // 将所有行添加到控制区域
+        // 将所有行添加到控制区域（机型预设置顶）
+        controlsContainer.appendChild(presetRow.dom);
         controlsContainer.appendChild(fovRow.dom);
         controlsContainer.appendChild(nearRow.dom);
         controlsContainer.appendChild(farRow.dom);
         controlsContainer.appendChild(focalRow.dom);
         controlsContainer.appendChild(unitRow.dom);
         controlsContainer.appendChild(sensorRow.dom);
-        controlsContainer.appendChild(derivedRow.dom);
-        controlsContainer.appendChild(presetRow.dom);
         controlsContainer.appendChild(lockRow.dom);
+        // 用户需求：将“垂直FOV | 对角FOV”提示行放在最下方
+        controlsContainer.appendChild(derivedRow.dom);
 
         // 初始化比例为4:3
         this.setAspect('4:3');
@@ -1321,20 +1321,16 @@ class SnapshotView extends Container {
 
         // 更新面板canvas尺寸已在 rebuildPreviewTargets 中完成
 
-        // 更新按钮激活态
+        // 更新按钮激活态（使用类，避免内联样式覆盖主题与统一色）
         if (this.aspectButtons) {
             const { fourThree, sixteenNine } = this.aspectButtons;
-            const activeStyle = (btn: Button, active: boolean) => {
-                const el = btn.dom as HTMLButtonElement;
-                el.style.background = active ? '#3a78ff' : '';
-                el.style.color = active ? '#fff' : '';
-                el.style.border = '1px solid #555';
-                el.style.borderRadius = '4px';
-                el.style.padding = '2px 6px';
-                el.style.cursor = 'pointer';
-            };
-            activeStyle(fourThree, aspect === '4:3');
-            activeStyle(sixteenNine, aspect === '16:9');
+            if (aspect === '4:3') {
+                fourThree.class.add('pcui-button-active');
+                sixteenNine.class.remove('pcui-button-active');
+            } else {
+                sixteenNine.class.add('pcui-button-active');
+                fourThree.class.remove('pcui-button-active');
+            }
         }
 
         // 刷新视椎体与派生FOV（仅在相机就绪时）

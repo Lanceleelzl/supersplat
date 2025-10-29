@@ -28,8 +28,7 @@ class ScenePanel extends Container {
             this.dom.addEventListener(eventName, (event: Event) => event.stopPropagation());
         });
 
-        // 添加拖拽功能
-        this.addDragFunctionality();
+        // 注意：拖拽功能需在标题栏创建并插入后再绑定
 
         const sceneHeader = new Container({
             class: 'panel-header'
@@ -103,79 +102,89 @@ class ScenePanel extends Container {
             class: 'panel-header',
             height: 20
         }));
+
+        // 标题栏已就绪，绑定拖拽功能
+        this.addDragFunctionality();
     }
 
     private addDragFunctionality() {
         let isDragging = false;
         const dragOffset = { x: 0, y: 0 };
-        let dragHandle: HTMLElement | null = null;
 
-        // 找到面板头部作为拖拽句柄
+        // 找到面板头部作为拖拽句柄（所有标题区域都可拖拽）
         const headerElements = this.dom.querySelectorAll('.panel-header');
         if (headerElements.length > 0) {
-            dragHandle = headerElements[0] as HTMLElement;
-            dragHandle.style.cursor = 'move';
+            headerElements.forEach((handleEl) => {
+                const dragHandle = handleEl as HTMLElement;
+                dragHandle.style.cursor = 'move';
 
-            const onPointerDown = (e: PointerEvent) => {
-                // 只响应左键点击
-                if (e.button !== 0) return;
+                const onPointerDown = (e: PointerEvent) => {
+                    // 只响应左键点击
+                    if (e.button !== 0) return;
 
-                isDragging = true;
-                const rect = this.dom.getBoundingClientRect();
-                dragOffset.x = e.clientX - rect.left;
-                dragOffset.y = e.clientY - rect.top;
-
-                // 设置面板为绝对定位
-                this.dom.style.position = 'absolute';
-                this.dom.style.zIndex = '1000';
-
-                // 捕获指针，确保鼠标移出元素时仍能响应事件
-                dragHandle!.setPointerCapture(e.pointerId);
-
-                e.preventDefault();
-                e.stopPropagation();
-            };
-
-            const onPointerMove = (e: PointerEvent) => {
-                if (!isDragging) return;
-
-                const newX = e.clientX - dragOffset.x;
-                const newY = e.clientY - dragOffset.y;
-
-                // 限制拖拽范围在窗口内
-                const maxX = window.innerWidth - this.dom.offsetWidth;
-                const maxY = window.innerHeight - this.dom.offsetHeight;
-
-                const clampedX = Math.max(0, Math.min(newX, maxX));
-                const clampedY = Math.max(0, Math.min(newY, maxY));
-
-                this.dom.style.left = `${clampedX}px`;
-                this.dom.style.top = `${clampedY}px`;
-                this.dom.style.right = 'auto';
-                this.dom.style.bottom = 'auto';
-
-                e.preventDefault();
-            };
-
-            const onPointerUp = (e: PointerEvent) => {
-                if (isDragging) {
-                    isDragging = false;
-                    this.dom.style.zIndex = '100';
-
-                    // 释放指针捕获
-                    if (dragHandle!.hasPointerCapture(e.pointerId)) {
-                        dragHandle!.releasePointerCapture(e.pointerId);
+                    // 避免点击标题栏按钮触发拖拽
+                    const target = e.target as HTMLElement;
+                    if (target.closest('.panel-header-button') || target.closest('.panel-header-close') || target.closest('.panel-header-pin')) {
+                        return;
                     }
-                }
-            };
 
-            // 绑定事件到拖拽句柄
-            dragHandle.addEventListener('pointerdown', onPointerDown);
-            dragHandle.addEventListener('pointermove', onPointerMove);
-            dragHandle.addEventListener('pointerup', onPointerUp);
+                    isDragging = true;
+                    const rect = this.dom.getBoundingClientRect();
+                    dragOffset.x = e.clientX - rect.left;
+                    dragOffset.y = e.clientY - rect.top;
 
-            // 处理指针取消事件（例如触摸被中断）
-            dragHandle.addEventListener('pointercancel', onPointerUp);
+                    // 设置面板为绝对定位
+                    this.dom.style.position = 'absolute';
+                    this.dom.style.zIndex = '1000';
+
+                    // 捕获指针，确保鼠标移出元素时仍能响应事件
+                    dragHandle.setPointerCapture(e.pointerId);
+
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
+                const onPointerMove = (e: PointerEvent) => {
+                    if (!isDragging) return;
+
+                    const newX = e.clientX - dragOffset.x;
+                    const newY = e.clientY - dragOffset.y;
+
+                    // 限制拖拽范围在窗口内
+                    const maxX = window.innerWidth - this.dom.offsetWidth;
+                    const maxY = window.innerHeight - this.dom.offsetHeight;
+
+                    const clampedX = Math.max(0, Math.min(newX, maxX));
+                    const clampedY = Math.max(0, Math.min(newY, maxY));
+
+                    this.dom.style.left = `${clampedX}px`;
+                    this.dom.style.top = `${clampedY}px`;
+                    this.dom.style.right = 'auto';
+                    this.dom.style.bottom = 'auto';
+
+                    e.preventDefault();
+                };
+
+                const onPointerUp = (e: PointerEvent) => {
+                    if (isDragging) {
+                        isDragging = false;
+                        this.dom.style.zIndex = '100';
+
+                        // 释放指针捕获
+                        if (dragHandle.hasPointerCapture(e.pointerId)) {
+                            dragHandle.releasePointerCapture(e.pointerId);
+                        }
+                    }
+                };
+
+                // 绑定事件到每个拖拽句柄
+                dragHandle.addEventListener('pointerdown', onPointerDown);
+                dragHandle.addEventListener('pointermove', onPointerMove);
+                dragHandle.addEventListener('pointerup', onPointerUp);
+
+                // 处理指针取消事件（例如触摸被中断）
+                dragHandle.addEventListener('pointercancel', onPointerUp);
+            });
         }
     }
 }
