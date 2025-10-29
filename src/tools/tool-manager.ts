@@ -43,6 +43,30 @@ class ToolManager {
         events.on('tool.toggleCoordSpace', () => {
             setCoordSpace(coordSpace === 'local' ? 'world' : 'local');
         });
+
+        // 共享的拖拽与变换时间状态，用于避免拖拽结束后的误点击清空选择
+        let toolDragging = false;
+        let lastTransformEventTime = 0;
+
+        events.function('tool.isDragging', () => {
+            return toolDragging;
+        });
+        events.function('tool.justTransformed', () => {
+            return (Date.now() - lastTransformEventTime) < 250;
+        });
+        events.function('tool.shouldIgnoreClick', () => {
+            return toolDragging || (Date.now() - lastTransformEventTime) < 250;
+        });
+
+        events.on('tool.dragging', (value: boolean) => {
+            toolDragging = !!value;
+            if (toolDragging) {
+                lastTransformEventTime = Date.now();
+            }
+        });
+        events.on('tool.transformed', () => {
+            lastTransformEventTime = Date.now();
+        });
     }
 
     // 注册工具到管理器

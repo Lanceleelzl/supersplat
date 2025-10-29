@@ -21,8 +21,24 @@ class SphereSelection {
             scene.forceRender = true;
         });
 
+        // 将球选的拖拽过程接入全局工具拖拽状态，用于抑制拖拽后的误点击
+        gizmo.on('transform:start', () => {
+            if (this.active) {
+                events.fire('tool.dragging', true);
+            }
+        });
         gizmo.on('transform:move', () => {
             sphere.moved();
+            if (this.active) {
+                events.fire('tool.transformed');
+                scene.forceRender = true;
+            }
+        });
+        gizmo.on('transform:end', () => {
+            if (this.active) {
+                events.fire('tool.dragging', false);
+                events.fire('tool.transformed');
+            }
         });
 
         // ui
@@ -71,11 +87,16 @@ class SphereSelection {
             sphere.radius = radius.value;
         });
 
-        events.on('camera.focalPointPicked', (details: { splat: Splat, position: Vec3 }) => {
-            if (this.active) {
-                sphere.pivot.setPosition(details.position);
-                gizmo.attach([sphere.pivot]);
-            }
+        events.on('camera.focalPointPicked', (details: any) => {
+            if (!this.active) return;
+            // 拖拽期间或刚结束时忽略点击
+            try {
+                if (events.invoke('tool.shouldIgnoreClick')) return;
+            } catch {}
+            // 仅在有效命中（splat 或 model）时更新球选的枢轴位置
+            if (!details?.splat && !details?.model) return;
+            sphere.pivot.setPosition(details.position);
+            gizmo.attach([sphere.pivot]);
         });
 
         const updateGizmoSize = () => {

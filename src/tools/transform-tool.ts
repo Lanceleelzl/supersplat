@@ -23,17 +23,21 @@ class TransformTool {
 
         gizmo.on('transform:start', () => {
             dragging = true;
+            events.fire('tool.dragging', true);
             pivot.start();
         });
 
         gizmo.on('transform:move', () => {
             pivot.moveTRS(pivotEntity.getLocalPosition(), pivotEntity.getLocalRotation(), pivotEntity.getLocalScale());
+            events.fire('tool.transformed');
             scene.forceRender = true;
         });
 
         gizmo.on('transform:end', () => {
             pivot.end();
             dragging = false;
+            events.fire('tool.dragging', false);
+            events.fire('tool.transformed');
         });
 
         // reattach the gizmo to the pivot
@@ -90,6 +94,8 @@ class TransformTool {
 
         // initialize coodinate space
         gizmo.coordSpace = events.invoke('tool.coordSpace');
+
+        // dragging state is exposed centrally by ToolManager via events
     }
 }
 

@@ -306,6 +306,17 @@ class PointerController {
                 return;
             }
 
+            // 如果正处于工具拖拽或刚刚结束拖拽，忽略这次点击以避免清空选择
+            try {
+                const ignore = (camera.scene?.events?.invoke && camera.scene.events.invoke('tool.shouldIgnoreClick')) as boolean;
+                if (ignore) {
+                    isDragging = false;
+                    return;
+                }
+            } catch (e) {
+                // ignore errors
+            }
+
             // 只有真正的点击（非拖拽）且不在UI面板上才触发选择逻辑
             if (!isDragging && !isClickOnUI(event)) {
                 camera.pickFocalPoint(event.offsetX, event.offsetY);

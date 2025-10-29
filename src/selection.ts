@@ -93,6 +93,12 @@ const registerSelectionEvents = (events: Events, scene: Scene) => {
     });
 
     events.on('camera.focalPointPicked', (details: { splat?: Splat, model?: GltfModel }) => {
+        // 拖拽过程中或刚刚结束拖拽时，不处理点击拾取，避免误清空选择
+        const ignore = events.invoke('tool.shouldIgnoreClick');
+        if (ignore) {
+            return;
+        }
+
         if (details.splat) {
             setSelection(details.splat, true); // true indicates user interaction
         } else if (details.model) {
