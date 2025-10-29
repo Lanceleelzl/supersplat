@@ -8,7 +8,7 @@ import { AssetSource, createReadSource } from './asset-source';
 import { ReadSource } from '../serialize/read-source';
 
 // The LCC_LOD_MAX_SPLATS can be adjusted according to the situation
-export const LCC_LOD_MAX_SPLATS = 20_000_000;
+const LCC_LOD_MAX_SPLATS = 20_000_000;
 const kSH_C0 = 0.28209479177387814;
 const SQRT_2 = 1.414213562373095;
 const SQRT_2_INV = 0.7071067811865475;
@@ -22,14 +22,14 @@ interface LccLod {
 
 // The scene uses a quadtree for spatial partitioning,
 // with each unit having its own xy index (starting from 0) and multiple layers of lod data
-export interface LccUnitInfo {
+interface LccUnitInfo {
     x: number;          // x index
     y: number;          // y index
     lods: Array<LccLod>;    //  lods
 }
 
 // Used to decompress scale in data.bin and sh in shcoef.bin
-export interface CompressInfo {
+interface CompressInfo {
     compressedScaleMin: Vec3;   // min scale
     compressedScaleMax: Vec3;   // max scale
     compressedSHMin: Vec3;      // min sh
@@ -361,8 +361,8 @@ const loadLcc = async (assetSource: AssetSource) => {
     const textSource = await createReadSource(assetSource);
     const text = new TextDecoder().decode(await textSource.arrayBuffer());
     const meta = JSON.parse(text);
-    // robust check: require Quality type and shcoef file, but guard mapFile
-    const isHasSH: boolean = meta.fileType === 'Quality' && !!(assetSource.mapFile && assetSource.mapFile('shcoef.bin'));
+    // official behavior: require Quality type and shcoef file
+    const isHasSH: boolean = meta.fileType === 'Quality' && !!(assetSource.mapFile('shcoef.bin'));
     const compressInfo: CompressInfo = parseMeta(meta);
     const splats: number[] = meta.splats;
 
@@ -382,7 +382,7 @@ const loadLcc = async (assetSource: AssetSource) => {
     const indexBuffer = await indexSource.arrayBuffer();
 
     const dataFile = assetSource.mapFile('data.bin');
-    const shFile = isHasSH && assetSource.mapFile ? assetSource.mapFile('shcoef.bin') : null;
+    const shFile = isHasSH ? assetSource.mapFile('shcoef.bin') : null;
     const unitInfos: LccUnitInfo[] = parseIndexBin(indexBuffer, meta);
 
     // data.bin + shcoef.bin -> gsplatData
