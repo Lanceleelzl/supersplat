@@ -16,6 +16,8 @@ import { Events } from '../events';
 import { Scene } from '../scene';
 import { localize } from './localization';
 import closeSvg from './svg/close_01.svg';
+import lockSvg from './svg/lock_01.svg';
+import unlockSvg from './svg/unlock_01.svg';
 import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {
@@ -61,11 +63,14 @@ class SnapshotView extends Container {
     private previewWorkRT?: RenderTarget;
     private previewData?: Uint8Array; // RGBA8
     private previewRafId?: number;
+    private panelLocked: boolean = true; // 默认固定
+    private pinButton?: Element;
+    private closeButton?: Element;
 
     constructor(events: Events, scene: Scene, tooltips?: Tooltips, args = {}) {
         super({
             id: 'snapshot-panel',
-            class: 'snapshot-view',
+            class: ['panel', 'snapshot-view'],
             ...args
         });
 
@@ -126,33 +131,49 @@ class SnapshotView extends Container {
     }
 
     private createUI() {
-        // 创建快照预览窗口的UI结构
+        // 创建快照预览窗口的UI结构（采用通用 .panel/.panel-header 体系）
         this.dom.innerHTML = `
-            <div class="snapshot-title-bar">
-                <span class="snapshot-title">快照预览</span>
-                <div class="snapshot-close-container"></div>
+            <div class="panel-header">
+                <span class="panel-header-label">快照预览</span>
+                <div class="panel-header-spacer"></div>
             </div>
-            <div class="snapshot-content">
-                <div class="snapshot-preview-container" style="padding:8px 8px 0 8px;">
-                    <canvas class="snapshot-preview" style="display:block; width:100%; max-width:360px; border:1px solid #4a90e2; border-radius:4px; box-shadow:0 0 0 1px rgba(74,144,226,0.2);"></canvas>
-                </div>
-                <div class="camera-controls">
-                    <div class="control-section">
-                        <h4>相机参数</h4>
-                    </div>
+            <div class="snapshot-preview-wrap">
+                <canvas class="snapshot-preview" style="display:block; width:auto; max-width:100%;"></canvas>
+            </div>
+            <div class="camera-controls">
+                <div class="control-section">
+                    <h4>相机参数</h4>
                 </div>
             </div>
         `;
 
-        // 创建关闭按钮并添加SVG图标
-        const closeContainer = this.dom.querySelector('.snapshot-close-container') as HTMLElement;
+        // 创建标题栏按钮并添加到通用 header
+        const headerEl = this.dom.querySelector('.panel-header') as HTMLElement;
+
+        // 固定/取消固定按钮（默认固定），复用关闭按钮样式
+        const pinButton = new Element({ class: 'panel-header-pin' });
+        pinButton.class.add('panel-header-close');
+        pinButton.dom.setAttribute('role', 'button');
+        pinButton.dom.setAttribute('tabindex', '0');
+        // 图标显示“将执行的动作”：当前为固定，显示“取消固定”图标
+        pinButton.dom.title = '取消固定';
+        pinButton.dom.appendChild(createSvg(unlockSvg));
+        headerEl.appendChild(pinButton.dom);
+        this.pinButton = pinButton;
+
         const closeButton = new Element({
-            class: 'snapshot-close-btn'
+            class: 'panel-header-close'
         });
         closeButton.dom.setAttribute('role', 'button');
         closeButton.dom.setAttribute('tabindex', '0');
         closeButton.dom.appendChild(createSvg(closeSvg));
-        closeContainer.appendChild(closeButton.dom);
+        headerEl.appendChild(closeButton.dom);
+        this.closeButton = closeButton;
+
+        // 为关闭按钮注册提示气泡：仅在固定状态下显示，提示位置在右侧
+        if (this.tooltips && this.panelLocked) {
+            this.tooltips.register(closeButton, '请取消固定，方可关闭', 'right');
+        }
 
         // 创建相机参数控制面板
         this.createCameraControls();
@@ -164,6 +185,58 @@ class SnapshotView extends Container {
         if (canvas) {
             this.previewCanvas = canvas;
             this.previewCtx = canvas.getContext('2d');
+        }
+
+        // 绑定固定/取消固定按钮事件（使用原生事件，确保SVG点击也可触发）
+        pinButton.dom.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.panelLocked = !this.panelLocked;
+            const container = this.pinButton!.dom;
+            container.innerHTML = '';
+            // 图标显示“将执行的动作”
+            if (this.panelLocked) {
+                // 当前为固定 -> 显示“取消固定”
+                container.appendChild(createSvg(unlockSvg));
+                container.title = '取消固定';
+                // 固定状态下注册关闭提示（右侧）
+                if (this.tooltips && this.closeButton) {
+                    this.tooltips.register(this.closeButton, '请取消固定，方可关闭', 'right');
+                }
+            } else {
+                // 当前为未固定 -> 显示“固定”
+                container.appendChild(createSvg(lockSvg));
+                container.title = '固定';
+                // 解除固定时取消关闭提示
+                if (this.tooltips && this.closeButton) {
+                    this.tooltips.unregister(this.closeButton);
+                }
+            }
+        });
+
+        // 关闭按钮点击事件（固定时提示，不执行关闭）
+        if (this.closeButton) {
+            const closeBtn = this.closeButton.dom as HTMLElement;
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (this.panelLocked) {
+                    if (this.tooltips) {
+                        try {
+                            closeBtn.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+                            window.setTimeout(() => {
+                                closeBtn.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+                            }, 1500);
+                        } catch (_) {
+                            this.events.fire('showToast', '请取消固定，方可关闭', 2000);
+                        }
+                    } else {
+                        this.events.fire('showToast', '请取消固定，方可关闭', 2000);
+                    }
+                    return; // 固定时不允许关闭
+                }
+                this.hide(false);
+            });
         }
     }
 
@@ -446,8 +519,8 @@ class SnapshotView extends Container {
         const dragOffset = { x: 0, y: 0 };
         let dragHandle: HTMLElement | null = null;
 
-        // 找到标题栏作为拖拽句柄
-        const titlebar = this.dom.querySelector('.snapshot-title-bar') as HTMLElement;
+        // 找到通用面板标题栏作为拖拽句柄
+        const titlebar = this.dom.querySelector('.panel-header') as HTMLElement;
         if (titlebar) {
             dragHandle = titlebar;
             dragHandle.style.cursor = 'move';
@@ -458,9 +531,9 @@ class SnapshotView extends Container {
                 // 只响应左键点击
                 if (e.button !== 0) return;
 
-                // 检查点击的是否是关闭按钮，如果是则不进行拖拽
+                // 检查点击的是否是关闭/固定按钮，如果是则不进行拖拽
                 const target = e.target as HTMLElement;
-                if (target.closest('.snapshot-close-btn')) {
+                if (target.closest('.panel-header-close') || target.closest('.panel-header-pin')) {
                     return;
                 }
 
@@ -519,15 +592,7 @@ class SnapshotView extends Container {
             dragHandle.addEventListener('pointercancel', onPointerUp);
         }
 
-        // 关闭按钮事件
-        const closeBtn = this.dom.querySelector('.snapshot-close-btn') as HTMLButtonElement;
-        if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hide();
-            });
-        }
+        // 关闭按钮事件已在创建UI阶段绑定
     }
 
     private setupCamera() {
@@ -738,18 +803,26 @@ class SnapshotView extends Container {
             }
         });
 
-        // 监听快照预览隐藏事件
+        // 监听快照预览隐藏事件（菜单优先级最高：强制关闭）
         this.events.on('snapshot.hide', () => {
             console.log('快照预览：接收到隐藏事件');
-            this.hide();
+            this.hide(true);
         });
 
         // 监听快照预览开关切换
         this.events.on('snapshot.toggle', () => {
             const isEnabled = this.events.invoke('snapshot.isEnabled');
             if (!isEnabled) {
-                // 如果关闭了快照预览，隐藏窗口
-                this.hide();
+                // 菜单关闭优先级更高：强制关闭并重置固定状态
+                this.panelLocked = true;
+                if (this.pinButton) {
+                    const container = this.pinButton.dom;
+                    container.innerHTML = '';
+                    // 重置为固定状态时，图标显示“取消固定”
+                    container.appendChild(createSvg(unlockSvg));
+                    container.title = '取消固定';
+                }
+                this.hide(true);
             }
         });
 
@@ -782,9 +855,9 @@ class SnapshotView extends Container {
                 if (this.scene.cameraFrustumVisualizer) {
                     this.scene.cameraFrustumVisualizer.hide();
                 }
-                // 若面板当前打开，同时也收起面板
-                if (!this.hidden) {
-                    this.hide();
+                // 若未固定则隐藏
+                if (!this.hidden && !this.panelLocked) {
+                    this.hide(false);
                 }
                 return;
             }
@@ -924,7 +997,11 @@ class SnapshotView extends Container {
         }
     }
 
-    hide() {
+    hide(force = false) {
+        if (!force && this.panelLocked) {
+            return; // 固定状态下，非强制关闭无效
+        }
+
         this.hidden = true;
         console.log('快照预览：窗口隐藏');
 

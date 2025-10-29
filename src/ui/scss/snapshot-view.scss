@@ -8,17 +8,19 @@
     max-width: calc(100vw - 40px);
     height: auto;
     max-height: calc(100vh - 40px);
-    background-color: $bcg-primary;
-    border: 1px solid $bcg-darker;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     z-index: 1000;
     display: block;
-    overflow: auto;
+    overflow: hidden; // 与通用面板一致，避免内部标题边缘透色
 
     &.pcui-hidden {
         display: none;
     }
+}
+
+// 与属性面板统一标题栏高度与内边距
+.snapshot-view > .panel-header {
+    height: 28px;
+    padding: 2px 8px;
 }
 
 .snapshot-window {
@@ -40,52 +42,27 @@
     }
 }
 
-.snapshot-title-bar {
-    background-color: $bcg-darker;
-    padding: 6px 8px;
-    border-radius: 8px 8px 0 0;
+// 删除自定义标题栏与按钮样式，改用通用 .panel-header / .panel-header-close
+
+// 移除底板：不再使用 snapshot-content 容器，转为由具体元素控制间距
+
+.snapshot-preview-wrap {
+    padding: 3px 8px; // 上下3px，左右8px 留白
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: move;
+    justify-content: center; // 水平居中canvas
 }
 
-.snapshot-title {
-    color: $text-primary;
-    font-weight: bold;
-    font-size: 12px;
+.snapshot-preview {
+    display: block;
+    width: auto;
+    max-width: 100%;
 }
 
-.snapshot-close-btn {
-    background: none;
-    border: none;
-    color: $text-primary;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 0;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    &:hover {
-        color: $clr-hilight;
-    }
-}
-
-.snapshot-content {
-    padding: 8px;
-    background-color: $bcg-primary !important;
-    border-radius: 0 0 8px 8px;
-}
-
+// （如有使用）保留旧类名的视觉设置，但不强制拉伸宽度
 .snapshot-canvas {
-    width: 100%;
     height: auto;
     border-radius: 4px;
     background: #1a1a1a;
-    margin-bottom: 8px;
 }
 
 .camera-controls {

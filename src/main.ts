@@ -328,7 +328,17 @@ const main = async () => {
         editorUI.menu.updateSnapshotPreviewStatus(snapshotPreviewEnabled);
 
         if (!snapshotPreviewEnabled) {
-            snapshotView.hide();
+            // 固定状态下也应关闭：使用强制隐藏
+            snapshotView.hide(true);
+            // 额外广播一次隐藏事件，确保所有监听方一致关闭
+            events.fire('snapshot.hide');
+        } else {
+            // 启用时：若当前已选择巡检模型，则立即打开并同步位姿
+            const currentSelection: any = events.invoke('selection');
+            if (currentSelection && (currentSelection as any).isInspectionModel) {
+                // 复用既有逻辑：广播 marker.selected，SnapshotView 会在启用状态下自动 show()
+                events.fire('marker.selected', currentSelection);
+            }
         }
     });
 

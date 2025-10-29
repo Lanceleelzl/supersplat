@@ -109,6 +109,12 @@
     font-style: italic;
 }
 
+// 标题栏高度统一为与场景管理器一致（依照 .panel-header 基准）
+#properties-panel > .panel-header {
+    height: 28px;
+    padding: 2px 8px;
+}
+
 // 关闭按钮样式
 .panel-header-close {
     cursor: pointer;

@@ -7,6 +7,8 @@ import { GltfModel } from '../gltf-model';
 import { Splat } from '../splat';
 import { localize } from './localization';
 import closeSvg from './svg/close_01.svg';
+import lockSvg from './svg/lock_01.svg';
+import unlockSvg from './svg/unlock_01.svg';
 import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {
@@ -20,6 +22,9 @@ class PropertiesPanel extends Container {
     tooltips: Tooltips;
     currentModel: GltfModel | null = null;
     currentSplat: Splat | null = null;
+    private panelLocked: boolean = true; // 默认固定
+    private pinButton?: Element;
+    private closeButton?: Element;
 
     // 信息显示容器
     infoContainer: Container;
@@ -98,21 +103,61 @@ class PropertiesPanel extends Container {
             class: 'panel-header-label'
         });
 
+        // 关闭按钮与固定按钮
+        // 在标签与按钮之间加入弹性占位，保证按钮靠右对齐
+        const headerSpacer = new Element({ class: 'panel-header-spacer' });
+
+        // 固定/取消固定按钮（默认固定）
+        const pinButton = new Element({ class: 'panel-header-pin' });
+        // 复用关闭按钮的样式外观
+        pinButton.class.add('panel-header-close');
+        pinButton.dom.setAttribute('role', 'button');
+        pinButton.dom.setAttribute('tabindex', '0');
+        // 图标显示“将执行的动作”：当前为固定，显示“取消固定”图标
+        pinButton.dom.title = '取消固定';
+        pinButton.dom.appendChild(createSvg(unlockSvg));
+        this.pinButton = pinButton;
+
         // 关闭按钮
         const closeButton = new Element({
             class: 'panel-header-close'
         });
         closeButton.dom.appendChild(createSvg(closeSvg));
+        this.closeButton = closeButton;
 
-        // 关闭按钮点击事件
+        // 为关闭按钮注册提示气泡：仅在固定状态时显示，提示位置在右侧
+        if (this.tooltips && this.panelLocked) {
+            this.tooltips.register(closeButton, '请取消固定，方可关闭', 'right');
+        }
+
+        // 关闭按钮点击事件（固定时给出提示，不执行关闭）
         closeButton.dom.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (this.panelLocked) {
+                // 固定时不允许关闭：在关闭按钮上方显示提示
+                // 优先使用已注册的 Tooltips，若环境不支持 PointerEvent 则回退为 Toast
+                if (this.tooltips) {
+                    try {
+                        closeButton.dom.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+                        window.setTimeout(() => {
+                            closeButton.dom.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+                        }, 1500);
+                    } catch (_) {
+                        this.events.fire('showToast', '请取消固定，方可关闭', 2000);
+                    }
+                } else {
+                    this.events.fire('showToast', '请取消固定，方可关闭', 2000);
+                }
+                return; // 固定时不允许关闭
+            }
             this.closePanel();
         });
 
         propertiesHeader.append(propertiesIcon);
         propertiesHeader.append(propertiesLabel);
+        propertiesHeader.append(headerSpacer);
+        propertiesHeader.append(pinButton);
         propertiesHeader.append(closeButton);
 
         // 主信息容器
@@ -297,6 +342,33 @@ class PropertiesPanel extends Container {
         // 初始状态：隐藏整个面板，只有选中GLB模型时才显示
         this.hidden = true;
         this.infoContainer.hidden = true;
+
+        // 固定/取消固定切换事件（用原生事件，确保SVG点击也可触发）
+        pinButton.dom.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.panelLocked = !this.panelLocked;
+            const container = this.pinButton!.dom;
+            container.innerHTML = '';
+            // 图标显示“将执行的动作”
+            if (this.panelLocked) {
+                // 当前为固定 -> 显示“取消固定”
+                container.appendChild(createSvg(unlockSvg));
+                container.title = '取消固定';
+                // 固定状态下注册关闭提示（右侧）
+                if (this.tooltips && this.closeButton) {
+                    this.tooltips.register(this.closeButton, '请取消固定，方可关闭', 'right');
+                }
+            } else {
+                // 当前为未固定 -> 显示“固定”
+                container.appendChild(createSvg(lockSvg));
+                container.title = '固定';
+                // 未固定状态取消关闭提示
+                if (this.tooltips && this.closeButton) {
+                    this.tooltips.unregister(this.closeButton);
+                }
+            }
+        });
     }
 
     private bindEvents() {
@@ -307,7 +379,7 @@ class PropertiesPanel extends Container {
 
             if (!attributePreviewEnabled) {
                 // 如果属性预览未启用，隐藏面板
-                this.hideProperties();
+                this.hideProperties(true); // 菜单优先级更高：强制关闭
                 return;
             }
 
@@ -324,12 +396,18 @@ class PropertiesPanel extends Container {
                 this.showPanel();
                 this.showSplatProperties(splat);
             } else {
+                // 非强制：遵守固定状态
                 this.hideProperties();
             }
         });
 
         // 监听相机焦点拾取事件（这个事件在每次点击时都会触发，包括点击同一个模型或高斯泼溅）
         this.events.on('camera.focalPointPicked', (details: { splat?: any, model?: GltfModel }) => {
+            // 仅在“查看属性”功能启用时响应拾取事件
+            const attributePreviewEnabled = this.events.invoke('attribute.isEnabled');
+            if (!attributePreviewEnabled) {
+                return;
+            }
             // 选中 GLB 模型时显示属性
             // 移除调试日志：选中GLB模型
             if (details.model && details.model.type === ElementType.model) {
@@ -357,7 +435,7 @@ class PropertiesPanel extends Container {
                 this.showPanel();
                 this.showSplatProperties(details.splat);
             } else {
-                // 点击空白区域，隐藏属性面板
+                // 点击空白区域，非强制隐藏（尊重固定）
                 this.hideProperties();
             }
         });
@@ -365,7 +443,16 @@ class PropertiesPanel extends Container {
         // 监听属性预览状态变化事件
         this.events.on('attribute.statusChanged', (attributePreviewEnabled: boolean) => {
             if (!attributePreviewEnabled) {
-                this.hideProperties();
+                // 菜单关闭时：强制关闭并重置固定状态
+                this.panelLocked = true;
+                if (this.pinButton) {
+                    const container = this.pinButton.dom;
+                    container.innerHTML = '';
+                    // 重置为固定状态时，图标显示“取消固定”
+                    container.appendChild(createSvg(unlockSvg));
+                    container.title = '取消固定';
+                }
+                this.hideProperties(true);
             } else {
                 const currentSelection = this.events.invoke('selection');
                 if (currentSelection) {
@@ -388,7 +475,7 @@ class PropertiesPanel extends Container {
         // 监听元素删除事件，防止访问已删除的模型引用
         this.events.on('scene.elementRemoved', (element: any) => {
             if (this.currentModel && element === this.currentModel) {
-                // 当前显示的模型被删除，清理引用并隐藏面板
+                // 当前显示的模型被删除，清理引用并隐藏面板（非强制，遵守固定）
                 this.hideProperties();
             }
         });
@@ -427,7 +514,11 @@ class PropertiesPanel extends Container {
         this.updateSplatInfo();
     }
 
-    private hideProperties() {
+    private hideProperties(force = false) {
+        if (!force && this.panelLocked) {
+            return; // 固定时忽略非强制关闭
+        }
+
         this.currentModel = null;
         this.currentSplat = null;
         this.placeholder.hidden = false;
@@ -757,9 +848,9 @@ class PropertiesPanel extends Container {
                 // 只响应左键点击
                 if (e.button !== 0) return;
 
-                // 检查点击的是否是关闭按钮，如果是则不进行拖拽
+                // 检查点击的是否是关闭或固定按钮，如果是则不进行拖拽
                 const target = e.target as HTMLElement;
-                if (target.closest('.panel-header-close')) {
+                if (target.closest('.panel-header-close') || target.closest('.panel-header-pin')) {
                     return;
                 }
 
