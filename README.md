@@ -37,6 +37,22 @@ To initialize a local development environment for SuperSplat, ensure you have [N
 
    ```sh
    npm run develop
+
+### Stylesheet Compilation (Sass CLI)
+
+SuperSplat 现在使用 Dart Sass CLI 预编译样式，避免使用已弃用的 Legacy JS API。
+
+- 开发模式：`npm run develop` 会并发启动 `sass --watch`，自动生成 `dist/index.css`。
+- 生产构建：`npm run build` 会先运行 `npm run css:build`，将 `src/ui/scss/style.scss` 编译到 `dist/index.css`，并使用 `autoprefixer` 处理兼容性。
+
+相关脚本：
+
+```sh
+npm run css:build   # 预编译 SCSS 到 dist/index.css 并执行 autoprefixer
+npm run css:watch   # 开发模式下监听 SCSS 变化并实时编译
+```
+
+注意：样式通过 `src/index.html` 的 `<link rel="stylesheet" href="./index.css">` 引入，不再通过 Rollup 打包 SCSS。
    ```
 
 4. Open a web browser tab and make sure network caching is disabled on the network tab and the other application caches are clear:

@@ -53,12 +53,12 @@ export class ViewModeManager {
 
     private mapModeToAxis(mode: Exclude<ViewMode, 'perspective'>): string | null {
         switch (mode) {
-            case 'top': return 'py';
-            case 'bottom': return 'ny';
-            case 'left': return 'nx';
-            case 'right': return 'px';
-            case 'front': return 'pz';
-            case 'back': return 'nz';
+            case 'top': return 'pz';      // 上：+Z
+            case 'bottom': return 'nz';   // 下：-Z
+            case 'left': return 'nx';     // 左：-X
+            case 'right': return 'px';    // 右：+X
+            case 'front': return 'ny';    // 前：-Y
+            case 'back': return 'py';     // 后：+Y
             default: return null;
         }
     }

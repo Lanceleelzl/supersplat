@@ -7,10 +7,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import strip from '@rollup/plugin-strip';
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
-import autoprefixer from 'autoprefixer';
-import postcss from 'postcss';
-import scss from 'rollup-plugin-scss';
-import sass from 'sass';
+// NOTE: SCSS is precompiled via CLI to dist/index.css
 
 import copyAndWatch from './copy-and-watch.mjs';
 
@@ -79,17 +76,7 @@ const application = {
         resolve(),
         image({ dom: false }),
         json(),
-        scss({
-            sourceMap: true,
-            runtime: sass,
-            processor: (css) => {
-                return postcss([autoprefixer])
-                .process(css, { from: undefined })
-                .then(result => result.css);
-            },
-            fileName: 'index.css',
-            includePaths: [`${PCUI_DIR}/dist`]
-        }),
+        // styles are linked directly in index.html
         BUILD_TYPE === 'release' &&
         strip({
             include: ['**/*.ts'],

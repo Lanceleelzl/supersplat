@@ -24,18 +24,20 @@ class ExcelExporter {
                 return;
             }
 
+            const safeData = this.sanitizeData(data);
+
             // 创建工作簿
             const workbook = XLSX.utils.book_new();
 
             // 创建工作表
-            const worksheet = XLSX.utils.json_to_sheet(data);
+            const worksheet = XLSX.utils.json_to_sheet(safeData);
 
             // 设置列宽
-            const columnWidths = this.calculateColumnWidths(data);
+            const columnWidths = this.calculateColumnWidths(safeData);
             worksheet['!cols'] = columnWidths;
 
             // 设置表头样式（如果支持）
-            this.styleHeaders(worksheet, data);
+            this.styleHeaders(worksheet, safeData);
 
             // 添加工作表到工作簿
             XLSX.utils.book_append_sheet(workbook, worksheet, '巡检参数');
@@ -48,12 +50,36 @@ class ExcelExporter {
             XLSX.writeFile(workbook, filename);
 
             // 显示成功消息
-            this.showSuccessMessage(filename, data.length);
+            this.showSuccessMessage(filename, safeData.length);
 
         } catch (error) {
             console.error('Excel导出失败:', error);
             console.error('Excel导出失败，请检查浏览器控制台获取详细错误信息。');
         }
+    }
+
+    private sanitizeData(data: any[]): any[] {
+        const firstKeys = Object.keys(data[0] || {});
+        return data.map((row) => {
+            const sanitized: Record<string, any> = {};
+            firstKeys.forEach((key) => {
+                sanitized[key] = this.sanitizeCellValue(row[key]);
+            });
+            return sanitized;
+        });
+    }
+
+    private sanitizeCellValue(value: any): any {
+        if (value == null) return '';
+        if (typeof value === 'number') return isFinite(value) ? value : '';
+        if (typeof value === 'boolean') return value;
+
+        let str = typeof value === 'string' ? value : JSON.stringify(value);
+        if (!str) return '';
+        if (str[0] === '=') str = "'" + str;
+        str = str.replace(/\r\n|\r|\n/g, ' ');
+        if (str.length > 1000) str = str.slice(0, 1000);
+        return str;
     }
 
     private calculateColumnWidths(data: any[]): any[] {

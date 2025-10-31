@@ -37,7 +37,10 @@ jobs:
     - name: Install
       run: npm ci
 
-    - name: Build
+    - name: Build CSS
+      run: npm run css:build
+
+    - name: Build App
       run: npm run build
 
   lint:

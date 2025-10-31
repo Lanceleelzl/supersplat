@@ -1,6 +1,6 @@
 {
     "name": "supersplat",
-    "version": "2.13.1",
+  "version": "2.13.2",
     "author": "PlayCanvas<support@playcanvas.com>",
     "homepage": "https://playcanvas.com/supersplat/editor",
     "description": "3D Gaussian Splat Editor",
@@ -14,10 +14,12 @@
     "license": "MIT",
     "main": "index.js",
     "scripts": {
-        "build": "rollup -c",
+        "css:build": "sass --load-path node_modules/@playcanvas/pcui/dist src/ui/scss/style.scss dist/index.css && node scripts/postcss.mjs",
+        "css:watch": "sass --load-path node_modules/@playcanvas/pcui/dist --embed-source-map src/ui/scss/style.scss dist/index.css --watch",
+        "build": "npm run css:build && rollup -c",
         "watch": "rollup -c -w",
         "serve": "serve dist -C",
-        "develop": "cross-env BUILD_TYPE=debug concurrently --kill-others \"npm run watch\" \"npm run serve\"",
+        "develop": "cross-env BUILD_TYPE=debug concurrently --kill-others \"npm run watch\" \"npm run serve\" \"npm run css:watch\"",
         "develop:auto-launch": "concurrently --kill-others \"xdg-open 'http://localhost:3000/'\" \"npm run watch\" \"npm run serve\"",
         "lint": "eslint src"
     },

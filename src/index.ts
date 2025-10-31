@@ -1,4 +1,3 @@
-import './ui/scss/style.scss';
 import { version as pcuiVersion, revision as pcuiRevision } from '@playcanvas/pcui';
 import { version as engineVersion, revision as engineRevision } from 'playcanvas';
 
@@ -6,7 +5,7 @@ import { main } from './main';
 import { version as appVersion } from '../package.json';
 
 // print out versions of dependent packages
-// NOTE: add dummy style reference to prevent tree shaking
+// NOTE: styles are linked via index.html (dist/index.css)
 
 // 过滤浏览器扩展的未处理 Promise 拒绝报错
 window.addEventListener('unhandledrejection', (event) => {
@@ -18,4 +17,4 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-main();
+main();
