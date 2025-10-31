@@ -11,10 +11,10 @@ const VIEW_MODES: { [key in ViewMode]: { name: string, icon: string, tooltip: st
     perspective: { name: '透视', icon: 'E283', tooltip: '透视视图' },
     top: { name: '上', icon: 'E111', tooltip: '正视图 - 上' },
     bottom: { name: '下', icon: 'E112', tooltip: '正视图 - 下' },
-    left: { name: '左', icon: 'E113', tooltip: '正视图 - 左' },
-    right: { name: '右', icon: 'E114', tooltip: '正视图 - 右' },
     front: { name: '前', icon: 'E115', tooltip: '正视图 - 前' },
-    back: { name: '后', icon: 'E116', tooltip: '正视图 - 后' }
+    back: { name: '后', icon: 'E116', tooltip: '正视图 - 后' },
+    left: { name: '左', icon: 'E113', tooltip: '正视图 - 左' },
+    right: { name: '右', icon: 'E114', tooltip: '正视图 - 右' }
 };
 
 class ViewModePanel extends Container {

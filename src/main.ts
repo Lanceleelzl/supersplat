@@ -103,6 +103,8 @@ const initShortcuts = (events: Events) => {
     shortcuts.register(['D', 'd'], { event: 'dataPanel.toggle' });  // 切换数据面板
     shortcuts.register([' '], { event: 'camera.toggleOverlay' });  // 切换覆盖层
 
+    // 方向键微调由移动工具在激活时自行监听并阻止默认行为
+
     return shortcuts;
 };
 
@@ -257,7 +259,7 @@ const main = async () => {
     toolManager.register('lassoSelection', new LassoSelection(events, editorUI.toolsContainer.dom, mask));
     toolManager.register('sphereSelection', new SphereSelection(events, scene, editorUI.canvasContainer));
     toolManager.register('boxSelection', new BoxSelection(events, scene, editorUI.canvasContainer));
-    toolManager.register('move', new MoveTool(events, scene));
+    toolManager.register('move', new MoveTool(events, scene, editorUI.toolsContainer.dom, editorUI.canvasContainer));
     toolManager.register('rotate', new RotateTool(events, scene));
     toolManager.register('scale', new ScaleTool(events, scene));
     toolManager.register('measure', new MeasureTool(events, scene, editorUI.toolsContainer.dom, editorUI.canvasContainer));

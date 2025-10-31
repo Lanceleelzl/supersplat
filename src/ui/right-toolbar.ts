@@ -173,12 +173,12 @@ class RightToolbar extends Container {
         // 视图模式下拉菜单
         const viewModeMenu = new MenuPanel([
             { text: '透视', icon: iconPerspective, onSelect: () => events.fire('viewMode.set', 'perspective') },
+            { text: '上', icon: iconTop, onSelect: () => events.fire('viewMode.set', 'top') },
+            { text: '下', icon: iconBottom, onSelect: () => events.fire('viewMode.set', 'bottom') },
             { text: '前', icon: iconFront, onSelect: () => events.fire('viewMode.set', 'front') },
             { text: '后', icon: iconBack, onSelect: () => events.fire('viewMode.set', 'back') },
             { text: '左', icon: iconLeft, onSelect: () => events.fire('viewMode.set', 'left') },
-            { text: '右', icon: iconRight, onSelect: () => events.fire('viewMode.set', 'right') },
-            { text: '上', icon: iconTop, onSelect: () => events.fire('viewMode.set', 'top') },
-            { text: '下', icon: iconBottom, onSelect: () => events.fire('viewMode.set', 'bottom') }
+            { text: '右', icon: iconRight, onSelect: () => events.fire('viewMode.set', 'right') }
         ], {
             class: ['menu-panel', 'menu-panel--compact', 'menu-panel--flat']
         });
@@ -188,12 +188,12 @@ class RightToolbar extends Container {
         // 当前模式高亮：使用图标颜色区分（不使用勾选）
         const modeIndex: Record<string, number> = {
             perspective: 0,
-            front: 1,
-            back: 2,
-            left: 3,
-            right: 4,
-            top: 5,
-            bottom: 6
+            top: 1,
+            bottom: 2,
+            front: 3,
+            back: 4,
+            left: 5,
+            right: 6
         };
         const updateActiveModeRow = (mode: string) => {
             const children = viewModeMenu.dom.children;
