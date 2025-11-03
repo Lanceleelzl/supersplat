@@ -1,0 +1,27 @@
+@use 'colors.scss' as *;
+
+#coordinate-origin-dialog {
+    #dialog {
+        #content {
+            .row {
+                .pcui-label.hint-block {
+                    // 占满整行显示，避免两列布局挤压
+                    flex-basis: 100%;
+                    width: 100%;
+                    display: block;
+                    // 文本换行
+                    white-space: normal; // 允许自动换行
+                    word-break: break-word; // 长词在边界断行
+                    line-height: 18px;
+                    color: $text-secondary;
+                }
+            }
+        }
+        #footer {
+            display: flex;
+            justify-content: center; // 居中对齐
+            gap: 8px;
+            padding: 4px 12px 12px 12px;
+        }
+    }
+}

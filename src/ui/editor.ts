@@ -18,6 +18,7 @@ import { Progress } from './progress';
 import { PropertiesPanel } from './properties-panel';
 import { PublishSettingsDialog } from './publish-settings-dialog';
 import { RightToolbar } from './right-toolbar';
+import { CoordinateOriginDialog } from './coordinate-origin-dialog';
 import { ScenePanel } from './scene-panel';
 import { ShortcutsPopup } from './shortcuts-popup';
 import { SnapshotView } from './snapshot-view';
@@ -200,11 +201,15 @@ class EditorUI {
         // video settings
         const videoSettingsDialog = new VideoSettingsDialog(events);
 
+        // coordinate origin settings
+        const coordinateOriginDialog = new CoordinateOriginDialog(events);
+
         topContainer.append(popup);
         topContainer.append(exportPopup);
         topContainer.append(publishSettingsDialog);
         topContainer.append(imageSettingsDialog);
         topContainer.append(videoSettingsDialog);
+        topContainer.append(coordinateOriginDialog);
 
         // 将巡检导出面板添加到body而不是topContainer，避免被其他元素遮挡
         document.body.appendChild(inspectionExportPanel.dom);
@@ -301,6 +306,15 @@ class EditorUI {
                         message: `'${error.message ?? error}'`
                     });
                 }
+            }
+        });
+
+        // 坐标原点设置对话框
+        events.function('show.coordinateOriginDialog', async () => {
+            const enu = await coordinateOriginDialog.show();
+            if (enu) {
+                // 全局保存
+                events.fire('origin.set', enu);
             }
         });
 

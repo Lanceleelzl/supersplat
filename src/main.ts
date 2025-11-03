@@ -112,6 +112,38 @@ const main = async () => {
     // 根事件对象
     const events = new Events();
 
+    // 坐标原点 ENU / EPSG 初始设置与获取（默认 ENU 为 0，EPSG 为空）
+    let originENU = { x: 0, y: 0, z: 0 };
+    let originEPSG = '';
+    // 导出地理坐标系目标（默认 WGS84）
+    let exportGeodeticTarget: 'wgs84' | 'cgcs2000' = 'wgs84';
+    // 提前注册常用查询函数，避免 UI 初始化阶段调用时报“未找到函数”的警告
+    events.function('origin.enu', () => originENU);
+    events.function('origin.epsg', () => originEPSG);
+    events.function('export.geodeticTarget', () => exportGeodeticTarget);
+    events.on('origin.set', (enu: { x: number, y: number, z: number, epsg?: string }) => {
+        originENU = {
+            x: isFinite(enu?.x) ? enu.x : 0,
+            y: isFinite(enu?.y) ? enu.y : 0,
+            z: isFinite(enu?.z) ? enu.z : 0
+        };
+        // 仅在提供非空的 EPSG 时更新，以避免后续仅修改 ENU 时意外清空 EPSG
+        const epsgStr = (typeof enu?.epsg === 'string') ? enu.epsg.trim() : '';
+        if (epsgStr) {
+            originEPSG = epsgStr;
+        }
+    });
+    // 设置导出地理坐标系目标
+    events.on('export.geodeticTarget.set', (target: 'wgs84' | 'cgcs2000') => {
+        exportGeodeticTarget = (target === 'cgcs2000') ? 'cgcs2000' : 'wgs84';
+        // 友好提示：WGS84 与 CGCS2000 为不同大地基准，若输入为UTM(WGS84)但输出选择CGCS2000，当前未应用严格基准转换（近似结果）。
+        const epsg = originEPSG;
+        const isUtmWgs84 = /^EPSG:32[67]\d{2}$/.test(epsg);
+        if (exportGeodeticTarget === 'cgcs2000' && isUtmWgs84) {
+            events.fire('toast', '注意：输入坐标为WGS84 UTM，输出选择CGCS2000，目前未应用严格基准转换，结果为近似值。');
+        }
+    });
+
     // 当前页面URL
     const url = new URL(window.location.href);
 
@@ -379,6 +411,7 @@ const main = async () => {
         editorUI.menu.updateSnapshotPreviewStatus(snapshotPreviewEnabled);
         editorUI.menu.updateFrustumStatus(frustumEnabled);
     }, 100);
+
 
     // 监听marker选择事件
     events.on('marker.selected', (model: any) => {

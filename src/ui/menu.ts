@@ -23,6 +23,7 @@ import selectNone from './svg/select-none.svg';
 import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
+import oriSvg from './svg/ori.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -301,6 +302,11 @@ class Menu extends Container {
         this.snapshotMenuItem,
         this.frustumMenuItem,
         this.attributeMenuItem,
+        {
+            text: '坐标参数设置',
+            icon: createSvg(oriSvg),
+            onSelect: async () => await events.invoke('show.coordinateOriginDialog')
+        },
         {
             text: '导出巡检参数',
             icon: createSvg(sceneExport),

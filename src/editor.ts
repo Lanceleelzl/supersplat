@@ -1356,7 +1356,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                     rowData['点位编号'] = (model as any).inspectionMarkerName || `${pointName}-${i + 1}`;
                 }
 
-                if (position) {
+                    if (position) {
                     if (exportOptions.coordinateX) {
                         rowData['X坐标'] = position.x.toFixed(3);
                     }
@@ -1364,7 +1364,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                         rowData['Y坐标'] = position.y.toFixed(3);
                     }
                     if (exportOptions.coordinateZ) {
-                        rowData['Z坐标'] = position.z.toFixed(3);
+                        rowData['Z坐标'] = position.z.toFixed(4);
                     }
                 }
 
