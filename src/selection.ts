@@ -93,6 +93,12 @@ const registerSelectionEvents = (events: Events, scene: Scene) => {
     });
 
     events.on('camera.focalPointPicked', (details: { splat?: Splat, model?: GltfModel }) => {
+        // 坐标查询等工具激活时，禁用选择更新
+        const preventSelection = events.invoke('tool.preventSelectionOnClick');
+        if (preventSelection) {
+            return;
+        }
+
         // 拖拽过程中或刚刚结束拖拽时，不处理点击拾取，避免误清空选择
         const ignore = events.invoke('tool.shouldIgnoreClick');
         if (ignore) {

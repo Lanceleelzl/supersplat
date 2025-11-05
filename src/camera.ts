@@ -1025,7 +1025,8 @@ class Camera extends Element {
             const { scene } = this;
             const splat = (result as any).splat;
             // 仅在可选状态下才更改相机焦点，避免不可选时自动对齐
-            if (splat?.selectable) {
+            const preventFocus = !!(scene?.events?.invoke && scene.events.invoke('tool.preventCameraFocusOnPick'));
+            if (splat?.selectable && !preventFocus) {
                 this.setFocalPoint((result as any).position);
                 this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
             }
@@ -1045,10 +1046,17 @@ class Camera extends Element {
             if (Camera.debugPick) {
                 console.log('没有拾取到任何模型');
             }
-            // 点击空白区域时也触发事件，用于清空选择
+            // 点击空白区域：使用相机焦点所在的平面（法线为相机forward）与屏幕射线求交
+            // 这样可得到屏幕点击处在该平面上的世界坐标，避免回落到(0,0,0)
+            this.getRay(screenX, screenY, ray);
+            plane.setFromPointNormal(this.focalPoint.clone(), this.entity.forward);
+            let pickPos = this.focalPoint.clone();
+            if (plane.intersectsRay(ray, vec)) {
+                pickPos = vec.clone();
+            }
             this.scene.events.fire('camera.focalPointPicked', {
                 camera: this,
-                position: new Vec3() // 提供一个默认位置
+                position: pickPos
             });
         }
     }

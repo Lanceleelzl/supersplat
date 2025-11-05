@@ -391,11 +391,17 @@ class Menu extends Container {
                 options.forEach((opt) => {
                     opt.menuPanel.hidden = opt !== option;
                 });
+                // 广播底部菜单打开
+                this.events.fire('bottomMenu.active', true);
             };
 
             option.dom.addEventListener('pointerdown', (event: PointerEvent) => {
                 if (!option.menuPanel.hidden) {
                     option.menuPanel.hidden = true;
+                    // 若所有菜单均关闭，广播关闭事件
+                    if (options.every(opt => opt.menuPanel.hidden)) {
+                        this.events.fire('bottomMenu.active', false);
+                    }
                 } else {
                     activate();
                 }
@@ -413,6 +419,8 @@ class Menu extends Container {
                 options.forEach((opt) => {
                     opt.menuPanel.hidden = true;
                 });
+                // 广播底部菜单关闭
+                this.events.fire('bottomMenu.active', false);
             }
         };
 

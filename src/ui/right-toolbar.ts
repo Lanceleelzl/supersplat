@@ -17,6 +17,7 @@ import rightviewSvg from './svg/rightview.svg';
 import ringsSvg from './svg/rings.svg';
 import showHideSplatsSvg from './svg/show-hide-splats.svg';
 import upviewSvg from './svg/upview.svg';
+import coordinateLookupSvg from './svg/CoordinateLookup.svg';
 import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {
@@ -111,8 +112,16 @@ class RightToolbar extends Container {
         this.append(cameraFrameSelection);
         this.append(cameraReset);
         this.append(colorPanel);
-        // 将视图模式下拉按钮插入在 SVG 区块下方，并在其后增加分隔
+        // 坐标查询按钮
+        const coordinateLookup = new Button({
+            id: 'right-toolbar-coordinate-lookup',
+            class: 'right-toolbar-toggle'
+        });
+        coordinateLookup.dom.appendChild(createSvg(coordinateLookupSvg));
+
+        // 将视图模式下拉按钮插入在 SVG 区块下方，并在其后增加“坐标查询”按钮，再增加分隔
         this.append(viewModeDropdown);
+        this.append(coordinateLookup);
         this.append(new Element({ class: 'right-toolbar-separator' }));
         this.append(options);
 
@@ -123,6 +132,7 @@ class RightToolbar extends Container {
         tooltips.register(colorPanel, localize('tooltip.color-panel'), 'left');
         tooltips.register(options, localize('tooltip.view-options'), 'left');
         tooltips.register(viewModeDropdown, '视图模式', 'left');
+        tooltips.register(coordinateLookup, '坐标查询', 'left');
 
         // add event handlers
 
@@ -135,6 +145,7 @@ class RightToolbar extends Container {
         cameraReset.on('click', () => events.fire('camera.reset'));
         colorPanel.on('click', () => events.fire('colorPanel.toggleVisible'));
         options.on('click', () => events.fire('viewPanel.toggleVisible'));
+        coordinateLookup.on('click', () => events.fire('tool.coordinateLookup'));
 
         events.on('camera.mode', (mode: string) => {
             ringsModeToggle.class[mode === 'rings' ? 'add' : 'remove']('active');
@@ -152,6 +163,11 @@ class RightToolbar extends Container {
 
         events.on('viewPanel.visible', (visible: boolean) => {
             options.class[visible ? 'add' : 'remove']('active');
+        });
+
+        // 工具激活状态联动
+        events.on('tool.activated', (toolName: string) => {
+            coordinateLookup.class[toolName === 'coordinateLookup' ? 'add' : 'remove']('active');
         });
 
         // 为下拉菜单准备图标元素（pcui Element）
