@@ -212,9 +212,6 @@ const localizeInit = () => {
                     'export.ply-compress': 'PLY komprimieren',
                     'export.splats-select': 'Splats',
                     'export.splats-select.all': 'Alle Splats',
-                    'export.format': 'Format',
-                    'export.format-compressed-ply': 'Komprimiertes PLY',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': 'Klicken zum kopieren',
@@ -487,9 +484,6 @@ const localizeInit = () => {
                     'export.ply-compress': 'Compress PLY',
                     'export.splats-select': 'Splats',
                     'export.splats-select.all': 'All Splats',
-                    'export.format': 'File Format',
-                    'export.format-compressed-ply': 'Compressed PLY',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': 'Click to copy',
@@ -749,9 +743,6 @@ const localizeInit = () => {
                     'export.ply-compress': 'Compresser PLY',
                     'export.splats-select': 'Splats',
                     'export.splats-select.all': 'Tous les Splats',
-                    'export.format': 'Format de fichier',
-                    'export.format-compressed-ply': 'PLY compressé',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': 'Cliquez pour copier',
@@ -1011,9 +1002,6 @@ const localizeInit = () => {
                     'export.ply-compress': 'PLYを圧縮',
                     'export.splats-select': 'Splat',
                     'export.splats-select.all': 'すべてのSplat',
-                    'export.format': 'ファイル形式',
-                    'export.format-compressed-ply': '圧縮PLY',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': 'クリックしてコピー',
@@ -1273,9 +1261,6 @@ const localizeInit = () => {
                     'export.ply-compress': 'PLY 압축',
                     'export.splats-select': 'Splat',
                     'export.splats-select.all': '모든 Splat',
-                    'export.format': '파일 형식',
-                    'export.format-compressed-ply': '압축된 PLY',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': '클릭하여 복사',
@@ -1539,9 +1524,6 @@ const localizeInit = () => {
                     'export.ply-compress': '压缩PLY',
                     'export.splats-select': 'Splat',
                     'export.splats-select.all': '所有Splat',
-                    'export.format': '文件格式',
-                    'export.format-compressed-ply': '压缩 PLY',
-                    'export.format-sog': 'SOG',
 
                     // Cursor
                     'cursor.click-to-copy': '点击复制',
