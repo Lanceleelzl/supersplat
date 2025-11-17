@@ -1,17 +1,5 @@
 import { Container, TextInput, NumericInput, Label } from '@playcanvas/pcui';
-import {
-    Vec3,
-    Entity,
-    Texture,
-    StandardMaterial,
-    BLEND_NORMAL,
-    BLEND_NONE,
-    CULLFACE_NONE,
-    ADDRESS_CLAMP_TO_EDGE,
-    FILTER_LINEAR,
-    FILTER_NEAREST,
-    FILTER_LINEAR_MIPMAP_LINEAR
-} from 'playcanvas';
+import { Vec3, Entity, StandardMaterial, BLEND_NONE, CULLFACE_NONE } from 'playcanvas';
 
 import { Events } from '../events';
 import { Scene } from '../scene';
@@ -35,17 +23,17 @@ class CoordinateLookupTool {
     private bottomMenuActive = false;
     private lastText = '';
     private markerWorld: Vec3 | null = null;
-    // 旧的 DOM 覆盖图标（已废弃，但保留以防需要回退）
+    // DOM 覆盖图标
     private markerDom: HTMLElement | null = null;
     private canvasContainerDom: HTMLElement | null = null;
-    // 3D Billboard 图标实体与材质
+    // 3D 球体标记（直径模式）
     private markerEntity: Entity | null = null;
     private markerMaterial: StandardMaterial | null = null;
-    private markerTexture: Texture | null = null;
     private markerReady = false;
     // 以“直径(px)”为输入语义，并直接按直径计算屏幕尺寸。
     // 默认直径 10px
     private markerDesiredPx = 10; // 目标屏幕像素直径
+    private markerMode: 'icon' | 'diameter' = 'icon'; // 初始为图标模式
 
     constructor(events: Events, scene: Scene, canvasContainer?: Container) {
         this.events = events;
@@ -74,7 +62,7 @@ class CoordinateLookupTool {
         controlsRow.append(this.textInput);
         (this.textInput as any).width = 380;
         // 直径数值输入（支持拖拽增减，使用NumericInput以节省空间）
-        const sizeLabel = new Label({ text: '直径(px)', class: 'select-toolbar-row-label' });
+        const sizeLabel = new Label({ text: '图标', class: 'select-toolbar-row-label' });
         this.sizeInput = new NumericInput({
             class: 'select-toolbar-row-number',
             width: 56,
@@ -86,11 +74,27 @@ class CoordinateLookupTool {
         });
         controlsRow.append(sizeLabel);
         controlsRow.append(this.sizeInput);
-        // 支持在标签上左右拖拽以调整数值，避免占位的滑杆
+        // 标签点击切换模式：图标 <-> 直径
         try {
-            sizeLabel.dom.style.cursor = 'ew-resize';
+            sizeLabel.dom.addEventListener('click', () => {
+                this.markerMode = this.markerMode === 'icon' ? 'diameter' : 'icon';
+                sizeLabel.text = this.markerMode === 'icon' ? '图标' : '直径(px)';
+                this.updateMarker();
+            });
+        } catch (_e) { /* ignore */ }
+        // 支持在标签上左右拖拽以调整数值（仅直径模式），但鼠标样式保持默认；提供点击切换提示与轻微悬停高亮
+        try {
+            const el = sizeLabel.dom as HTMLElement;
+            el.style.cursor = 'default';
+            el.style.userSelect = 'none';
+            el.title = '点击切换图标/直径';
+            const onEnter = () => { el.style.filter = 'brightness(1.08)'; };
+            const onLeave = () => { el.style.filter = ''; };
+            el.addEventListener('mouseenter', onEnter);
+            el.addEventListener('mouseleave', onLeave);
             const onPointerDown = (e: PointerEvent) => {
                 e.preventDefault();
+                if (this.markerMode !== 'diameter') return;
                 const startX = e.clientX;
                 // 以直径为基准进行拖拽
                 const startVal = (this.sizeInput?.value as number) ?? Math.max(1, Math.round(this.markerDesiredPx));
@@ -101,6 +105,7 @@ class CoordinateLookupTool {
                     if (this.sizeInput) this.sizeInput.value = val;
                     // 直接使用直径值
                     this.markerDesiredPx = val;
+                    this.updateMarker();
                 };
                 const onUp = () => {
                     window.removeEventListener('pointermove', onMove);
@@ -153,8 +158,8 @@ class CoordinateLookupTool {
             }
         });
 
-        // 每帧更新：同步位置与缩放
-        events.on('update', () => this.updateMarker3D());
+        // 每帧更新：根据模式刷新图标/球体
+        events.on('update', () => this.updateMarker());
 
         // 画布尺寸变化时重新定位工具条到“测量”按钮上方
         events.on('camera.resize', () => this.repositionToolbar());
@@ -275,116 +280,29 @@ class CoordinateLookupTool {
         return this.markerDom;
     }
 
-    // 生成“十字靶标”样式的平面贴图纹理（适配坐标查询）
-    private async ensureMarkerTexture(): Promise<Texture> {
-        if (this.markerTexture) return this.markerTexture;
-        const device = this.scene.graphicsDevice;
-        // 采用固定大小的方形像素画布，保证屏幕空间缩放时清晰
-        const size = 128; // 可调整像素密度
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Canvas 2D context unavailable');
-
-        // 清空背景为完全透明
-        ctx.clearRect(0, 0, size, size);
-
-        // 参数
-        const center = size / 2;
-        const outerR = size * 0.42; // 外环半径
-        const innerR = size * 0.12; // 中心圆点半径
-        const lineLen = size * 0.24; // 十字线长度
-        const lineWidth = Math.max(2, Math.round(size * 0.04));
-
-        // 辅色：白色线条；主色：橙色中心
-        const white = 'rgba(255,255,255,1)';
-        const orange = 'rgba(233,143,54,1)'; // 接近原有橙色
-
-        // 绘制外环（白色，略粗）
-        ctx.beginPath();
-        ctx.strokeStyle = white;
-        ctx.lineWidth = lineWidth;
-        ctx.arc(center, center, outerR, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 绘制十字线（上下左右）
-        ctx.strokeStyle = white;
-        ctx.lineWidth = lineWidth;
-        // 上
-        ctx.beginPath();
-        ctx.moveTo(center, center - outerR);
-        ctx.lineTo(center, center - outerR + lineLen);
-        ctx.stroke();
-        // 下
-        ctx.beginPath();
-        ctx.moveTo(center, center + outerR);
-        ctx.lineTo(center, center + outerR - lineLen);
-        ctx.stroke();
-        // 左
-        ctx.beginPath();
-        ctx.moveTo(center - outerR, center);
-        ctx.lineTo(center - outerR + lineLen, center);
-        ctx.stroke();
-        // 右
-        ctx.beginPath();
-        ctx.moveTo(center + outerR, center);
-        ctx.lineTo(center + outerR - lineLen, center);
-        ctx.stroke();
-
-        // 绘制中心实心圆（橙色）
-        ctx.beginPath();
-        ctx.fillStyle = orange;
-        ctx.arc(center, center, innerR, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 创建纹理并应用过滤与寻址设置
-        const texture = new Texture(device, {
-            name: 'coordinateMarker',
-            width: size,
-            height: size,
-            mipmaps: false
-        } as any);
-        (texture as any).setSource(canvas);
-        (texture as any).minFilter = FILTER_LINEAR;   // 缩小时平滑
-        (texture as any).magFilter = FILTER_NEAREST;  // 放大时锐利
-        (texture as any).addressU = ADDRESS_CLAMP_TO_EDGE;
-        (texture as any).addressV = ADDRESS_CLAMP_TO_EDGE;
-        (texture as any).anisotropy = 16;
-        this.markerTexture = texture;
-        return texture;
-    }
-
-    // 创建或获取 3D Billboard 图标实体（仅球体）
+    // 创建或获取 3D 球体图标实体（直径模式）
     private async ensureMarkerEntity(): Promise<Entity> {
         if (this.markerEntity) return this.markerEntity;
         const entity = new Entity('coordinateMarker');
-        // 主体材质：不受光照、置顶、不写深度；橙色发光不透明
+        // 主体材质：不受光照、不写深度、不测试深度；橙色发光
         const headMat = new StandardMaterial();
         headMat.blendType = BLEND_NONE;
         (headMat as any).cull = CULLFACE_NONE;
         (headMat as any).useLighting = false;
         (headMat as any).depthTest = false;
         (headMat as any).depthWrite = false;
-        // 默认橙色
         (headMat as any).emissive = { r: 0.913, g: 0.561, b: 0.212 };
         headMat.update();
         this.markerMaterial = headMat;
 
-        // 使用球体作为图标主体
         entity.addComponent('render', { type: 'sphere' });
         const gizmoId = this.scene.gizmoLayer.id;
         (entity.render as any).material = this.markerMaterial;
         (entity.render as any).layers = [gizmoId];
-
-        // 初始缩放将由更新函数按屏幕像素动态计算
         entity.setLocalScale(1, 1, 1);
 
-        // 取消光晕，仅保留球体
-
-        // 添加到场景
         this.scene.app.root.addChild(entity);
-        entity.enabled = false; // 初始隐藏
+        entity.enabled = false;
 
         this.markerEntity = entity;
         this.markerReady = true;
@@ -394,12 +312,42 @@ class CoordinateLookupTool {
     private async placeMarker(world: Vec3) {
         // 设置新位置
         this.markerWorld = world.clone?.() || new Vec3(world.x, world.y, world.z);
-        const entity = await this.ensureMarkerEntity();
-        entity.setPosition(this.markerWorld);
-        entity.enabled = this.active && !this.bottomMenuActive;
-        this.updateMarker3D();
+        // 预备两种模式的资源
+        this.ensureMarkerDom();
+        if (this.markerMode === 'diameter') {
+            await this.ensureMarkerEntity();
+        }
+        this.updateMarker();
     }
 
+    // 使用 DOM 覆盖图标，避免 3D 实体
+    private updateMarker2D() {
+        const el = this.markerDom;
+        if (!el) return;
+        if (!this.active || this.bottomMenuActive || !this.markerWorld) {
+            el.style.display = 'none';
+            return;
+        }
+
+        const camEntity = this.scene.camera.entity;
+        const camComp = camEntity.camera;
+        const sp = camComp.worldToScreen(this.markerWorld, new Vec3());
+        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || sp.z < 0) {
+            el.style.display = 'none';
+            return;
+        }
+
+        // 显示并定位到屏幕坐标
+        el.style.display = 'block';
+        el.style.left = `${sp.x}px`;
+        el.style.top = `${sp.y}px`;
+        // 根据设置的像素直径调整大小
+        const px = Math.max(1, this.markerDesiredPx);
+        el.style.width = `${px}px`;
+        el.style.height = `${px}px`;
+    }
+
+    // 使用 3D 球体（直径模式）
     private updateMarker3D() {
         const entity = this.markerEntity;
         if (!entity) return;
@@ -408,7 +356,6 @@ class CoordinateLookupTool {
             return;
         }
 
-        // 相机裁剪扩展：若标记点距离接近或超出farClip，动态扩大farClip以保证可见
         const camEntity = this.scene.camera.entity;
         const camComp = camEntity.camera;
         const camPos = camEntity.getPosition().clone();
@@ -417,39 +364,38 @@ class CoordinateLookupTool {
             (camComp as any).farClip = Math.min(dist * 1.5, 1e6);
         }
 
-        // 若在相机后方则隐藏
         const sp = camComp.worldToScreen(this.markerWorld, new Vec3());
         if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || sp.z < 0) {
             entity.enabled = false;
             return;
         }
 
-        // 同步位置
         entity.setPosition(this.markerWorld);
         entity.enabled = true;
 
-        // 球体无需始终面向相机
-
-        // 屏幕空间恒定像素大小：根据相机类型计算世界尺度
         const canvas = this.scene.canvas;
-        // camComp 已有
         const targetH = Math.max(1, this.scene.targetSize?.height || canvas.clientHeight);
-        const desiredPx = this.markerDesiredPx; // 目标直径像素
-        let worldH = 0.05; // fallback
+        const desiredPx = this.markerDesiredPx;
+        let worldH = 0.05;
         if (this.scene.camera.ortho) {
-            // orthoHeight 是视体半高（世界单位）
             const orthoHalfH = (camComp as any).orthoHeight ?? 1;
             worldH = desiredPx * (2 * orthoHalfH) / targetH;
         } else {
-            const d = dist;
             const fovRad = (camComp.fov ?? 60) * Math.PI / 180;
-            // 小角度近似：屏幕像素高度 ≈ worldH / d * (canvasH / (2 * tan(fov/2)))
-            worldH = desiredPx * (2 * d * Math.tan(fovRad / 2)) / targetH;
+            worldH = desiredPx * (2 * dist * Math.tan(fovRad / 2)) / targetH;
         }
-
-        // PlayCanvas 默认球体的本体尺寸以“半径”为1（直径为2）进行构建。
-        // 为使屏幕“直径”与输入一致，这里将缩放设置为“世界半径 = 世界直径 / 2”。
         entity.setLocalScale(worldH / 2, worldH / 2, worldH / 2);
+    }
+
+    // 根据模式更新对应标记
+    private updateMarker() {
+        if (this.markerMode === 'icon') {
+            if (this.markerEntity) this.markerEntity.enabled = false;
+            this.updateMarker2D();
+        } else {
+            if (this.markerDom) this.markerDom.style.display = 'none';
+            this.updateMarker3D();
+        }
     }
 
     // EPSG解析与逆算实现（参考Excel导出器逻辑）
@@ -550,10 +496,9 @@ class CoordinateLookupTool {
         // 激活后清空旧值，待点击后显示
         this.lastText = '';
         this.textInput.value = '';
-        // 隐藏旧的 DOM 图标（不再使用）
+        // 准备 DOM 图标
+        this.ensureMarkerDom();
         if (this.markerDom) this.markerDom.style.display = 'none';
-        // 预创建 3D 图标实体（异步纹理加载）
-        this.ensureMarkerEntity().catch(() => { /* ignore */ });
         this.markerWorld = null;
         this.updateVisibility();
     }
@@ -562,7 +507,6 @@ class CoordinateLookupTool {
         this.active = false;
         // 停用时隐藏标记
         if (this.markerDom) this.markerDom.style.display = 'none';
-        if (this.markerEntity) this.markerEntity.enabled = false;
         this.updateVisibility();
     }
 }
