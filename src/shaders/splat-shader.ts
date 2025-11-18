@@ -149,6 +149,7 @@ varying mediump vec4 color;
 uniform int mode;               // 0: centers, 1: rings
 uniform float pickerAlpha;
 uniform float ringSize;
+uniform float minAlpha;
 
 const float EXP4 = exp(-4.0);
 const float INV_EXP4 = 1.0 / (1.0 - EXP4);
@@ -171,6 +172,7 @@ void main(void) {
             gl_FragColor = color;
         #else
             mediump float alpha = normExp(A) * color.a;
+            alpha = max(alpha, minAlpha);
 
             if (texCoordIsLocked.z == 0.0 && ringSize > 0.0) {
                 // rings mode

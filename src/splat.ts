@@ -180,6 +180,7 @@ class Splat extends Element {
             material.setDefine('SH_BANDS', `${Math.min(bands, (instance.resource as GSplatResource).shBands)}`);
             material.setParameter('splatState', this.stateTexture);
             material.setParameter('splatTransform', this.transformTexture);
+            material.setParameter('minAlpha', 0);
             material.update();
 
             // 同步到快照实例的材质
@@ -196,6 +197,7 @@ class Splat extends Element {
                 smat.setDefine('RESPECT_CLIP_PLANES', '1');
                 smat.setParameter('splatState', this.stateTexture);
                 smat.setParameter('splatTransform', this.transformTexture);
+                smat.setParameter('minAlpha', 0);
                 smat.update();
             }
         };
@@ -255,12 +257,14 @@ class Splat extends Element {
             material.setDefine('SH_BANDS', `${(inst.resource as GSplatResource).shBands}`);
             material.setParameter('splatState', this.stateTexture);
             material.setParameter('splatTransform', this.transformTexture);
+            material.setParameter('minAlpha', 0);
             material.update();
         };
         applyMaterial(snapInst);
         // 初始构造时即为快照实例开启尊重裁剪面
         const snapMat = snapInst.material;
         snapMat.setDefine('RESPECT_CLIP_PLANES', '1');
+        snapMat.setParameter('minAlpha', 0);
         snapMat.update();
     }
 
@@ -436,6 +440,7 @@ class Splat extends Element {
         const material = this.entity.gsplat.instance.material;
         material.setParameter('mode', cameraMode === 'rings' ? 1 : 0);
         material.setParameter('ringSize', (selected && cameraOverlay && cameraMode === 'rings') ? 0.04 : 0);
+        material.setParameter('minAlpha', 0);
 
         const selectionAlpha = selected && !events.invoke('view.outlineSelection') ? this.selectionAlpha : 0;
 
@@ -467,6 +472,7 @@ class Splat extends Element {
             const smat = this.snapshotEntity.gsplat.instance.material;
             smat.setParameter('mode', cameraMode === 'rings' ? 1 : 0);
             smat.setParameter('ringSize', (selected && cameraOverlay && cameraMode === 'rings') ? 0.04 : 0);
+            smat.setParameter('minAlpha', 0);
             smat.setParameter('selectedClr', [selectedClr.r, selectedClr.g, selectedClr.b, selectedClr.a * selectionAlpha]);
             smat.setParameter('unselectedClr', [unselectedClr.r, unselectedClr.g, unselectedClr.b, unselectedClr.a]);
             smat.setParameter('lockedClr', [lockedClr.r, lockedClr.g, lockedClr.b, lockedClr.a]);
