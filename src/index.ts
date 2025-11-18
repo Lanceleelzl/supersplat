@@ -6,6 +6,12 @@ import { version as appVersion } from '../package.json';
 
 // print out versions of dependent packages
 // NOTE: styles are linked via index.html (dist/index.css)
+const params = new URLSearchParams(window.location.search.slice(1));
+const enableDebugLog = params.has('debug');
+if (!enableDebugLog) {
+  console.log = () => {};
+  console.debug = () => {};
+}
 
 // 过滤浏览器扩展的未处理 Promise 拒绝报错
 window.addEventListener('unhandledrejection', (event) => {

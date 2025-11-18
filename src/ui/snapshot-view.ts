@@ -719,6 +719,12 @@ class SnapshotView extends Container {
         const width = this.previewRT.width;
         const height = this.previewRT.height;
 
+        // 确保 CPU 缓冲大小与当前 RT 尺寸一致，避免在切换比例时发生越界
+        const requiredBytes = width * height * 4;
+        if (this.previewData.byteLength !== requiredBytes) {
+            this.previewData = new Uint8Array(requiredBytes);
+        }
+
         // 拷贝到非MSAA工作RT
         try {
             this.scene.dataProcessor.copyRt(this.previewRT, this.previewWorkRT);
@@ -746,7 +752,7 @@ class SnapshotView extends Container {
         }
 
         // 兼容部分 TS/DOM 类型收窄：先创建空 ImageData 再填充像素
-        const pixels = new Uint8ClampedArray(this.previewData.buffer);
+        const pixels = new Uint8ClampedArray(this.previewData.buffer, 0, requiredBytes);
         const imageData = new ImageData(width, height);
         imageData.data.set(pixels);
         this.previewCtx.putImageData(imageData, 0, 0);

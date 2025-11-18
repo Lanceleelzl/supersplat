@@ -14,6 +14,7 @@
     "license": "MIT",
     "main": "index.js",
     "scripts": {
+        "prebuild": "sass --load-path node_modules/@playcanvas/pcui/dist src/ui/scss/style.scss dist/index.css --no-source-map",
         "build": "rollup -c",
         "watch": "rollup -c -w",
         "serve": "serve dist -C",

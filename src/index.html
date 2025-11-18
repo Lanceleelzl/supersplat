@@ -21,15 +21,13 @@
             
             if (sw && isProduction) {
                 sw.register('./sw.js')
-                    .then(reg => console.log('service worker registered', reg))
-                    .catch(err => console.log('failed to register service worker', err));
+                    .then(() => {})
+                    .catch(() => {});
             } else {
-                console.log('Service worker disabled in development mode');
                 // Clear any existing service workers in development
                 if (sw) {
                     sw.getRegistrations().then(registrations => {
                         registrations.forEach(registration => {
-                            console.log('Unregistering service worker for development');
                             registration.unregister();
                         });
                     });
