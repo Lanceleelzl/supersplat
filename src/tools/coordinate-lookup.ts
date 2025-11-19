@@ -34,6 +34,7 @@ class CoordinateLookupTool {
     // 默认直径 10px
     private markerDesiredPx = 10; // 目标屏幕像素直径
     private markerMode: 'icon' | 'diameter' = 'icon'; // 初始为图标模式
+    
 
     constructor(events: Events, scene: Scene, canvasContainer?: Container) {
         this.events = events;
@@ -257,8 +258,8 @@ class CoordinateLookupTool {
             latLon = this.webMercatorInverse(E, N, ellipsoid.a);
         }
 
-        const lonText = latLon && isFinite(latLon.lon) ? latLon.lon.toFixed(13) : '';
-        const latText = latLon && isFinite(latLon.lat) ? latLon.lat.toFixed(13) : '';
+        const lonText = latLon && isFinite(latLon.lon) ? latLon.lon.toFixed(7) : '';
+        const latText = latLon && isFinite(latLon.lat) ? latLon.lat.toFixed(7) : '';
         const altText = isFinite(U) ? U.toFixed(3) : '';
         return `经度: ${lonText}  纬度: ${latText}  海拔(m): ${altText}`;
     }
@@ -272,7 +273,7 @@ class CoordinateLookupTool {
         el.style.width = '26px';
         el.style.height = '26px';
         el.style.transform = 'translate(-50%, -100%)';
-        el.style.zIndex = '1001';
+        el.style.zIndex = '50';
         this.markerDom = el;
         if (this.canvasContainerDom) {
             this.canvasContainerDom.appendChild(el);
@@ -324,7 +325,7 @@ class CoordinateLookupTool {
     private updateMarker2D() {
         const el = this.markerDom;
         if (!el) return;
-        if (!this.active || this.bottomMenuActive || !this.markerWorld) {
+        if (!this.active || !this.markerWorld) {
             el.style.display = 'none';
             return;
         }
@@ -351,7 +352,7 @@ class CoordinateLookupTool {
     private updateMarker3D() {
         const entity = this.markerEntity;
         if (!entity) return;
-        if (!this.active || this.bottomMenuActive || !this.markerWorld) {
+        if (!this.active || !this.markerWorld) {
             entity.enabled = false;
             return;
         }
@@ -493,10 +494,8 @@ class CoordinateLookupTool {
 
     activate() {
         this.active = true;
-        // 激活后清空旧值，待点击后显示
         this.lastText = '';
         this.textInput.value = '';
-        // 准备 DOM 图标
         this.ensureMarkerDom();
         if (this.markerDom) this.markerDom.style.display = 'none';
         this.markerWorld = null;
@@ -505,10 +504,11 @@ class CoordinateLookupTool {
 
     deactivate() {
         this.active = false;
-        // 停用时隐藏标记
         if (this.markerDom) this.markerDom.style.display = 'none';
         this.updateVisibility();
     }
+
+    
 }
 
 export { CoordinateLookupTool };
