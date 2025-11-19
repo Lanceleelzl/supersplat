@@ -3,7 +3,7 @@ import { Container, Element, Label } from '@playcanvas/pcui';
 type Direction = 'left' | 'right' | 'top' | 'bottom';
 
 class Tooltips extends Container {
-    register: (target: Element, text: string, direction?: Direction) => void;
+    register: (target: Element, text: string, direction?: Direction, offsetPx?: number, anchor?: HTMLElement) => void;
     unregister: (target: Element) => void;
     destroy: () => void;
 
@@ -26,33 +26,34 @@ class Tooltips extends Container {
         const style = this.dom.style;
         let timer: number = 0;
 
-        this.register = (target: Element, textString: string, direction: Direction = 'bottom') => {
+        this.register = (target: Element, textString: string, direction: Direction = 'bottom', offsetPx: number = 10, anchor?: HTMLElement) => {
 
             const activate = () => {
                 const rect = target.dom.getBoundingClientRect();
+                const anchorRect = anchor ? anchor.getBoundingClientRect() : rect;
                 const midx = Math.floor((rect.left + rect.right) * 0.5);
-                const midy = Math.floor((rect.top + rect.bottom) * 0.5);
+                const midy = Math.floor((anchorRect.top + anchorRect.bottom) * 0.5);
 
                 switch (direction) {
                     case 'left':
                         style.left = `${rect.left}px`;
                         style.top = `${midy}px`;
-                        style.transform = 'translate(calc(-100% - 10px), -50%)';
+                        style.transform = `translate(calc(-100% - ${offsetPx}px), -50%)`;
                         break;
                     case 'right':
                         style.left = `${rect.right}px`;
                         style.top = `${midy}px`;
-                        style.transform = 'translate(10px, -50%)';
+                        style.transform = `translate(${offsetPx}px, -50%)`;
                         break;
                     case 'top':
                         style.left = `${midx}px`;
-                        style.top = `${rect.top}px`;
-                        style.transform = 'translate(-50%, calc(-100% - 10px))';
+                        style.top = `${anchorRect.top}px`;
+                        style.transform = `translate(-50%, calc(-100% - ${offsetPx}px))`;
                         break;
                     case 'bottom':
                         style.left = `${midx}px`;
-                        style.top = `${rect.bottom}px`;
-                        style.transform = 'translate(-50%, 10px)';
+                        style.top = `${anchorRect.bottom}px`;
+                        style.transform = `translate(-50%, ${offsetPx}px)`;
                         break;
                 }
 

@@ -348,6 +348,116 @@ class InspectionPointContainer extends Container {
     }
 }
 
+class InspectionObjectGroupContainer extends Container {
+    private headerElement: Container;
+    private contentContainer: Container;
+    private collapseIcon: PcuiElement;
+    private groupLabel: Label;
+    private _collapsed = false;
+    private _selectable = true;
+    private events: Events;
+    private groupId: string;
+
+    constructor(groupId: string, events: Events, args = {}) {
+        args = {
+            ...args,
+            class: ['inspection-point-container']
+        };
+        super(args);
+        this.events = events;
+        this.groupId = groupId;
+
+        this.headerElement = new Container({ class: 'inspection-point-header' });
+        this.collapseIcon = new PcuiElement({ dom: createSvg(collapseSvg), class: 'inspection-point-collapse-icon' });
+        this.groupLabel = new Label({ text: groupId, class: 'inspection-point-label' });
+
+        const visible = new PcuiElement({ dom: createSvg(shownSvg), class: 'inspection-point-visible' });
+        const invisible = new PcuiElement({ dom: createSvg(hiddenSvg), class: 'inspection-point-visible', hidden: true });
+        const selectable = new PcuiElement({ dom: createSvg(selectedSvg), class: 'inspection-point-selectable' });
+        const unselectable = new PcuiElement({ dom: createSvg(selectedNoSvg), class: 'inspection-point-selectable', hidden: true });
+        const duplicate = new PcuiElement({ dom: createSvg(selectDuplicateSvg), class: 'inspection-point-duplicate' });
+        duplicate.dom.title = '新增空组';
+        const remove = new PcuiElement({ dom: createSvg(deleteSvg), class: 'inspection-point-delete' });
+        remove.dom.title = '删除分组';
+
+        this.headerElement.append(this.collapseIcon);
+        this.headerElement.append(this.groupLabel);
+        this.headerElement.append(visible);
+        this.headerElement.append(invisible);
+        this.headerElement.append(selectable);
+        this.headerElement.append(unselectable);
+        this.headerElement.append(duplicate);
+        this.headerElement.append(remove);
+
+        this.contentContainer = new Container({ class: 'inspection-point-content' });
+        this.append(this.headerElement);
+        this.append(this.contentContainer);
+
+        // collapse
+        this.collapseIcon.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.toggleCollapse(); });
+        this.groupLabel.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.toggleCollapse(); });
+
+        // visibility toggle affects children items
+        const setVisible = (v: boolean) => {
+            Array.from(this.contentContainer.dom.children).forEach((child: HTMLElement) => {
+                const id = (child.dataset && (child.dataset as any).inspectionId) as string | undefined;
+                const ui = (child as any).__ui as SplatItem | undefined;
+                if (ui && typeof ui.visible !== 'undefined') ui.visible = v;
+                if (id) this.events.fire('inspectionObjects.setVisible', id, v);
+            });
+            this.events.fire('inspectionObjects.groupSetVisible', this.groupId, v);
+        };
+        visible.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setVisible(false); visible.hidden = true; invisible.hidden = false; });
+        invisible.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setVisible(true); visible.hidden = false; invisible.hidden = true; });
+
+        // selectable toggle affects children items
+        const setSelectable = (v: boolean) => {
+            this._selectable = v;
+            Array.from(this.contentContainer.dom.children).forEach((child: HTMLElement) => {
+                const id = (child.dataset && (child.dataset as any).inspectionId) as string | undefined;
+                const ui = (child as any).__ui as SplatItem | undefined;
+                if (ui && typeof ui.selectable !== 'undefined') ui.selectable = v;
+                if (id) this.events.fire('inspectionObjects.setSelectable', id, v);
+            });
+        };
+        selectable.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setSelectable(false); selectable.hidden = true; unselectable.hidden = false; });
+        unselectable.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setSelectable(true); selectable.hidden = false; unselectable.hidden = true; });
+
+        // duplicate -> add empty group (handled outside via event)
+        duplicate.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.emit('duplicateClicked', this.groupId); });
+        remove.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation();
+            // 删除所有子项对应的场景对象
+            Array.from(this.contentContainer.dom.children).forEach((child: HTMLElement) => {
+                const id = (child.dataset && (child.dataset as any).inspectionId) as string | undefined;
+                if (id) this.events.fire('inspectionObjects.removeItem', id);
+            });
+            this.emit('removeClicked', this);
+        });
+
+        // hover effect
+        this.headerElement.dom.addEventListener('mouseenter', () => this.headerElement.class.add('hover'));
+        this.headerElement.dom.addEventListener('mouseleave', () => this.headerElement.class.remove('hover'));
+    }
+
+    toggleCollapse() {
+        this._collapsed = !this._collapsed;
+        if (this._collapsed) {
+            this.contentContainer.hidden = true;
+            this.collapseIcon.dom.style.transform = 'rotate(-90deg)';
+            this.class.add('collapsed');
+        } else {
+            this.contentContainer.hidden = false;
+            this.collapseIcon.dom.style.transform = 'rotate(0deg)';
+            this.class.remove('collapsed');
+        }
+    }
+
+    appendToContent(el: PcuiElement) { this.contentContainer.append(el); }
+    removeFromContent(el: PcuiElement) { this.contentContainer.remove(el); }
+    isEmpty() { return this.contentContainer.dom.children.length === 0; }
+}
+
 class SplatItem extends Container {
     getName: () => string;
     setName: (value: string) => void;
@@ -593,6 +703,12 @@ class SplatList extends Container {
     private gltfCategory: CategoryContainer;
     private inspectionCategory: CategoryContainer;
     private inspectionPoints: Map<string, InspectionPointContainer>;
+    private inspectionObjectsCategory: CategoryContainer;
+    private inspectionObjectsGroups: Map<string, CategoryContainer>;
+    private currentGroupId: string | null = null;
+    private groupCounter = 0;
+    private itemCounters: Map<string, number> = new Map();
+    private inspectionObjectItems: Map<string, { item: SplatItem; groupId: string }> = new Map();
 
     constructor(events: Events, args = {}) {
         args = {
@@ -609,11 +725,149 @@ class SplatList extends Container {
         this.gltfCategory = new CategoryContainer('GLTF Models');
         this.inspectionCategory = new CategoryContainer('巡检点位');
         this.inspectionPoints = new Map<string, InspectionPointContainer>();
+        this.inspectionObjectsCategory = new CategoryContainer('巡检对象', { class: ['category-container', 'inspection-objects-category'] });
+        this.inspectionObjectsGroups = new Map();
 
         // 添加分类容器到主容器
         this.append(this.splatCategory);
         this.append(this.gltfCategory);
         this.append(this.inspectionCategory);
+        this.append(this.inspectionObjectsCategory);
+
+        // 组与对象添加逻辑（巡检对象）
+        const nextGroupId = () => `XJDX-${++this.groupCounter}`;
+        const ensureGroup = (groupId?: string) => {
+            if (!groupId) {
+                groupId = this.currentGroupId || nextGroupId();
+            }
+            let group = this.inspectionObjectsGroups.get(groupId);
+            if (!group) {
+                const groupContainer = new InspectionObjectGroupContainer(groupId, events);
+                // duplicate adds empty group
+                groupContainer.on('duplicateClicked', () => {
+                    const newId = nextGroupId();
+                    ensureGroup(newId);
+                    this.currentGroupId = newId;
+                });
+                // delete group
+                groupContainer.on('removeClicked', () => {
+                    this.inspectionObjectsCategory.removeFromContent(groupContainer);
+                    this.inspectionObjectsGroups.delete(groupId as string);
+                    if (this.currentGroupId === groupId) this.currentGroupId = null;
+                });
+                group = groupContainer as unknown as CategoryContainer;
+                this.inspectionObjectsGroups.set(groupId, group);
+                this.inspectionObjectsCategory.appendToContent(groupContainer as any);
+                // 组名双击重命名
+                const editGroup = new TextInput({ id: 'inspection-group-edit' });
+                const labelEl = (groupContainer as any).pointLabel as Label;
+                labelEl?.dom.addEventListener('dblclick', (event: MouseEvent) => {
+                    event.stopPropagation();
+                    const onblur = () => {
+                        (groupContainer as any).remove(editGroup);
+                        labelEl.text = editGroup.value;
+                        editGroup.input.removeEventListener('blur', onblur);
+                        labelEl.hidden = false;
+                    };
+                    labelEl.hidden = true;
+                    (groupContainer as any).appendAfter(editGroup, labelEl);
+                    editGroup.value = labelEl.text;
+                    editGroup.input.addEventListener('blur', onblur);
+                    (editGroup as any).focus?.();
+                });
+                // 设置当前选中组
+                (groupContainer as any).dom.addEventListener('click', (e: MouseEvent) => {
+                    e.stopPropagation();
+                    this.currentGroupId = groupId as string;
+                });
+            }
+            this.currentGroupId = groupId as string;
+            return group;
+        };
+
+        const addInspectionObject = (payload: { id: string; kind: 'point'|'line'|'face'; groupId?: string }) => {
+            const kind = payload.kind;
+            const group = ensureGroup(payload.groupId);
+            const gid = this.currentGroupId as string;
+            const idx = (this.itemCounters.get(gid) || 0) + 1;
+            this.itemCounters.set(gid, idx);
+            const prefix = kind === 'point' ? '点' : kind === 'line' ? '线' : '面';
+            const name = `${prefix}-${gid}-${idx}`;
+            const edit2 = new TextInput({ id: 'inspection-obj-edit' });
+            const item = new SplatItem(name, edit2);
+            item.class.add('inspection-model');
+            item.class.add('no-duplicate');
+            (group as any).appendToContent(item);
+            (item.dom as HTMLElement).dataset.inspectionId = payload.id;
+            this.inspectionObjectItems.set(payload.id, { item, groupId: gid });
+            item.on('click', () => {
+                this.currentGroupId = gid;
+                // 选中高亮：同组其他子项取消选中
+                const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
+                if (content) {
+                    Array.from(content.children).forEach((child: any) => {
+                        const ui = child.__ui as SplatItem | undefined;
+                        if (ui && typeof ui.selected !== 'undefined') ui.selected = false;
+                    });
+                }
+                item.selected = true;
+                events.fire('inspectionObjects.edit', payload.id);
+            });
+            item.on('removeClicked', () => {
+                (group as any).removeFromContent(item);
+                events.fire('inspectionObjects.removeItem', payload.id);
+            });
+            item.on('rename', (value: string) => {
+                item.name = value;
+                // 可根据需要将名称同步到工具
+            });
+            item.on('visible', () => { events.fire('inspectionObjects.setVisible', payload.id, true); });
+            item.on('invisible', () => { events.fire('inspectionObjects.setVisible', payload.id, false); });
+            item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => { events.fire('inspectionObjects.setSelectable', payload.id, selectable); });
+        };
+
+        // 监听工具添加对象事件
+        events.on('inspectionObjects.addItem', (payload: any) => {
+            addInspectionObject(payload);
+        });
+        // 清除子项选中高亮
+        events.on('inspectionObjects.clearSelection', () => {
+            this.inspectionObjectsGroups.forEach((group) => {
+                const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
+                if (content) {
+                    Array.from(content.children).forEach((child: any) => {
+                        const ui = child.__ui as SplatItem | undefined;
+                        if (ui && typeof ui.selected !== 'undefined') ui.selected = false;
+                    });
+                }
+            });
+        });
+        // 初始化默认组
+        ensureGroup();
+        // 提供当前选中组查询
+        events.function('inspectionObjects.currentGroupId', () => this.currentGroupId || nextGroupId());
+
+        // 父级显隐时同步更新子项的图标显隐状态
+        events.on('inspectionObjects.groupSetVisible', (groupId: string, visible: boolean) => {
+            const group = this.inspectionObjectsGroups.get(groupId);
+            if (!group) return;
+            const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
+            if (!content) return;
+            Array.from(content.children).forEach((child: any) => {
+                const ui = child.__ui as SplatItem | undefined;
+                if (ui && typeof ui.visible !== 'undefined') ui.visible = visible;
+                const visEl = child.querySelector('.splat-item-visible') as HTMLElement | null;
+                const invisEl = child.querySelector('.splat-item-invisible') as HTMLElement | null;
+                if (visEl && invisEl) {
+                    visEl.hidden = !visible;
+                    invisEl.hidden = visible;
+                }
+            });
+            // 同步通过映射确保 setter 生效
+            this.inspectionObjectItems.forEach(({ item, groupId: gid }) => {
+                if (gid === groupId) item.visible = visible;
+            });
+        });
 
         // edit input used during renames
         const edit = new TextInput({

@@ -180,7 +180,7 @@
     }
 
     // 巡检点位容器样式
-    .inspection-point-container {
+.inspection-point-container {
         margin-bottom: 4px;
         border-radius: 4px;
         background-color: rgba(76, 175, 80, 0.02);
@@ -347,4 +347,9 @@
             }
         }
     }
+}
+
+// 巡检对象分类标题颜色与巡检点位一致
+.inspection-objects-category .category-header .category-label {
+    color: #2E7D32;
 }

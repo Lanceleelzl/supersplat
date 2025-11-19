@@ -24,6 +24,7 @@ import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
 import oriSvg from './svg/ori.svg';
+import createTargetSvg from './svg/createtarget.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -294,7 +295,13 @@ class Menu extends Container {
             }
         };
 
-        this.inspectionMenuPanel = new MenuPanel([{
+        this.inspectionMenuPanel = new MenuPanel([
+        {
+            text: '设置巡检对象',
+            icon: createSvg(createTargetSvg),
+            onSelect: () => events.fire('inspectionObjects.toggleToolbar')
+        },
+        {
             text: localize('inspection.add-point'),
             icon: createSvg(sceneImport),
             onSelect: () => events.fire('inspection.addPoint')
@@ -361,11 +368,29 @@ class Menu extends Container {
         this.append(renderMenuPanel);
         this.append(helpMenuPanel);
 
+        // 初始化：确保所有菜单面板隐藏
+        fileMenuPanel.hidden = true;
+        exportMenuPanel.hidden = true;
+        selectionMenuPanel.hidden = true;
+        this.inspectionMenuPanel.hidden = true;
+        renderMenuPanel.hidden = true;
+        helpMenuPanel.hidden = true;
+
         // 初始化快照菜单文本显示
         setTimeout(() => {
             this.updateSnapshotMenuText();
             this.updateAttributeMenuText();
             this.updateFrustumMenuText();
+            this.events.on('inspectionObjects.active', (active: boolean) => {
+                const menuRows = this.inspectionMenuPanel!.dom.querySelectorAll('.menu-row');
+                const first = menuRows[0];
+                if (first) {
+                    const textLabel = first.querySelector('.menu-row-text');
+                    if (textLabel) {
+                        textLabel.textContent = active ? '设置巡检对象 ✓' : '设置巡检对象';
+                    }
+                }
+            });
         }, 0);
 
         const options: { dom: HTMLElement, menuPanel: MenuPanel }[] = [{
@@ -472,23 +497,24 @@ class Menu extends Container {
 
             // 直接更新菜单面板中对应菜单项的文本
             const menuRows = this.inspectionMenuPanel.dom.querySelectorAll('.menu-row');
-            // 快照预览是第2个菜单项 (index 1)
-            if (menuRows[1]) {
-                const textLabel = menuRows[1].querySelector('.menu-row-text');
+            // 由于在顶部插入了“设置巡检对象”和“添加巡检点”，索引整体后移2位
+            // 快照预览是第3个菜单项 (index 2)
+            if (menuRows[2]) {
+                const textLabel = menuRows[2].querySelector('.menu-row-text');
                 if (textLabel) {
                     textLabel.textContent = this.snapshotMenuItem.text;
                 }
             }
-            // 视椎体是第3个菜单项 (index 2)
-            if (menuRows[2]) {
-                const textLabel = menuRows[2].querySelector('.menu-row-text');
+            // 视椎体是第4个菜单项 (index 3)
+            if (menuRows[3]) {
+                const textLabel = menuRows[3].querySelector('.menu-row-text');
                 if (textLabel) {
                     textLabel.textContent = this.frustumMenuItem.text;
                 }
             }
-            // 查看属性是第4个菜单项 (index 3)
-            if (menuRows[3]) {
-                const textLabel = menuRows[3].querySelector('.menu-row-text');
+            // 查看属性是第5个菜单项 (index 4)
+            if (menuRows[4]) {
+                const textLabel = menuRows[4].querySelector('.menu-row-text');
                 if (textLabel) {
                     textLabel.textContent = this.attributeMenuItem.text;
                 }

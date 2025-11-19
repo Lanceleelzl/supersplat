@@ -32,6 +32,8 @@ import { EditorUI } from './ui/editor';
 import { ExcelExporter } from './ui/excel-exporter';
 import { SnapshotView } from './ui/snapshot-view';
 import { InspectionViewport } from './ui/inspection-viewport';
+import { InspectionObjectToolbar } from './ui/inspection-object-toolbar';
+import { InspectionObjectTool } from './tools/inspection-object-tool';
 
 
 declare global {
@@ -450,6 +452,56 @@ const main = async () => {
     // ============================
     const inspectionViewport = new InspectionViewport(events, scene);
     editorUI.canvasContainer.append(inspectionViewport);
+
+    // 巡检对象工具条与工具
+    const inspectionObjectToolbar = new InspectionObjectToolbar();
+    inspectionObjectToolbar.hidden = true;
+    editorUI.canvasContainer.append(inspectionObjectToolbar);
+    const inspectionObjectTool = new InspectionObjectTool(events, scene, editorUI.canvasContainer);
+    toolManager.register('inspectionObjects', inspectionObjectTool);
+
+    inspectionObjectToolbar.on('setMode', (mode: 'point'|'line'|'face') => {
+        events.fire('inspectionObjects.setMode', mode);
+    });
+    inspectionObjectToolbar.on('toggleActive', (active: boolean) => {
+        events.fire('inspectionObjects.active', active);
+        events.fire(active ? 'tool.inspectionObjects' : 'tool.deactivate');
+    });
+    inspectionObjectToolbar.on('sizeChange', (size: number) => {
+        events.fire('inspectionObjects.setSize', size);
+    });
+
+    events.on('inspectionObjects.toggleToolbar', () => {
+        inspectionObjectToolbar.hidden = !inspectionObjectToolbar.hidden;
+        events.fire('inspectionObjects.active', false);
+        events.fire('tool.deactivate');
+        if (!inspectionObjectToolbar.hidden) {
+            const menuBar = document.getElementById('menu-bar');
+            if (menuBar) {
+                const rect = menuBar.getBoundingClientRect();
+                inspectionObjectToolbar.dom.style.position = 'absolute';
+                inspectionObjectToolbar.dom.style.left = `${rect.right}px`;
+                // 垂直居中对齐主菜单高度
+                inspectionObjectToolbar.dom.style.top = `${Math.round(rect.top + (rect.height - 54) / 2)}px`;
+                inspectionObjectToolbar.dom.style.bottom = 'auto';
+                inspectionObjectToolbar.dom.style.transform = 'none';
+                inspectionObjectToolbar.dom.style.pointerEvents = 'auto';
+            }
+            // 工具提示与交互注册
+            const tt = editorUI.tooltips;
+            const anchor = inspectionObjectToolbar.dom;
+            tt.register(inspectionObjectToolbar.btnPoint, '创建点对象', 'bottom', 0, anchor);
+            tt.register(inspectionObjectToolbar.btnLine, '创建带状对象', 'bottom', 0, anchor);
+            tt.register(inspectionObjectToolbar.btnFace, '创建面对象', 'bottom', 0, anchor);
+        }
+    });
+
+    // 防止创建巡检对象时误触发背景选择：提供统一的“点击不更新选择”判断
+    let preventSelectionOnClick = false;
+    events.function('tool.preventSelectionOnClick', () => preventSelectionOnClick);
+    events.on('inspectionObjects.active', (active: boolean) => {
+        preventSelectionOnClick = active;
+    });
 
     // 巡检视口默认开启，可通过事件开关
     let inspectionViewportEnabled = true;

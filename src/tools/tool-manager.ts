@@ -60,10 +60,10 @@ class ToolManager {
 
         // 当坐标查询工具激活时，禁止点击后触发相机聚焦与选择变更
         events.function('tool.preventCameraFocusOnPick', () => {
-            return this.active === 'coordinateLookup';
+            return this.active === 'coordinateLookup' || this.active === 'inspectionObjects';
         });
         events.function('tool.preventSelectionOnClick', () => {
-            return this.active === 'coordinateLookup';
+            return this.active === 'coordinateLookup' || this.active === 'inspectionObjects';
         });
 
         events.on('tool.dragging', (value: boolean) => {

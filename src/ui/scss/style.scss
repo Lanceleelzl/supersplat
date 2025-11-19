@@ -259,3 +259,25 @@ body {
     font-weight: bold;
     font-style: normal;
 }
+// 巡检对象工具条悬停边框高亮（与底部工具条交互一致：激活填充高亮，悬停仅边框）
+#inspection-object-toolbar {
+    .bottom-toolbar-tool:hover {
+        outline: 2px solid $clr-hilight;
+        outline-offset: 0px;
+    }
+    .bottom-toolbar-tool {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .bottom-toolbar-tool svg {
+        display: block;
+        width: 20px;
+        height: 20px;
+    }
+}
+
+// 隐藏巡检对象子层级的原位复制按钮
+.splat-item.no-duplicate .splat-item-duplicate {
+    display: none;
+}
