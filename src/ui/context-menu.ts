@@ -9,7 +9,7 @@ import { localize } from './localization';
 import deleteSvg from './svg/delete.svg';
 import hiddenSvg from './svg/hidden.svg';
 import selectDuplicateSvg from './svg/select-duplicate.svg';
-import shownSvg from './svg/shown.svg';
+import showSvg from './svg/show.svg';
 
 // 创建SVG元素的帮助函数
 const createSvg = (svgString: string) => {
@@ -80,7 +80,7 @@ class ContextMenu extends Container {
             },
             {
                 text: '显示模型',
-                icon: shownSvg,
+                icon: showSvg,
                 action: () => this.showModel(),
                 enabled: () => (this.currentModel !== null && !this.currentModel.entity?.enabled) ||
                               (this.currentSplat !== null && !this.currentSplat.visible)

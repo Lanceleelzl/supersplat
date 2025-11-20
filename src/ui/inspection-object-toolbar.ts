@@ -62,8 +62,8 @@ class InspectionObjectToolbar extends Container {
         this.append(this.btnFace);
         this.append(this.dragHandle);
 
-        // 强制与选择工具条一致的横向布局
-        this.dom.style.display = 'flex';
+        // 初始隐藏，显示时再设置为横向布局
+        this.dom.style.display = 'none';
         this.dom.style.flexDirection = 'row';
         this.dom.style.alignItems = 'center';
 

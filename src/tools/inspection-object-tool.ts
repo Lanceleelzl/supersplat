@@ -1,8 +1,10 @@
 import { Container } from '@playcanvas/pcui';
-import { Vec3, Plane, Ray, Entity, TranslateGizmo, Quat } from 'playcanvas';
+import { Vec3, Plane, Ray, Entity, Quat } from 'playcanvas';
+
 
 import { Events } from '../events';
 import { Scene } from '../scene';
+import { Transform } from '../transform';
 import inspectionPointSvg from '../ui/svg/inspectionpoint.svg';
 const createImgEl = (src: string) => {
     const img = document.createElement('img');
@@ -22,9 +24,9 @@ class InspectionObjectTool {
     private svg: SVGSVGElement | null = null;
     private active = false;
     private objects = new Map<string, { id: string; kind: Mode; groupId: string; dom?: HTMLElement }>();
-    private gizmo: TranslateGizmo;
     private gizmoEntity: Entity;
     private editingId: string | null = null;
+    private suppressUntil = 0;
 
     constructor(events: Events, scene: Scene, canvasContainer: Container) {
         this.events = events;
@@ -46,12 +48,7 @@ class InspectionObjectTool {
             if (!this.active) return;
             const isLeft = e.button === 0;
             if (!isLeft) return;
-            if (this.editingId) {
-                this.gizmo.detach();
-                this.editingId = null;
-                this.events.fire('inspectionObjects.clearSelection');
-                return;
-            }
+            const wasEditing = !!this.editingId;
             const startX = e.clientX;
             const startY = e.clientY;
             let moved = false;
@@ -73,6 +70,7 @@ class InspectionObjectTool {
                 window.removeEventListener('pointerup', onUp, true);
                 if (moved) {
                     this.events.fire('tool.dragging', false);
+                    this.suppressUntil = Date.now() + 250;
                     return;
                 }
                 if (!this.active) return;
@@ -81,79 +79,117 @@ class InspectionObjectTool {
                 const rect = this.canvasContainerDom.getBoundingClientRect();
                 const x = ev.clientX - rect.left;
                 const y = ev.clientY - rect.top;
-            const hit = this.scene.camera.intersect(x, y) as any;
-            if (!hit || !hit.position) return;
-            const world = new Vec3(hit.position.x, hit.position.y, hit.position.z);
-            const groupId = (this.events.invoke('inspectionObjects.currentGroupId') as string) || 'XJDX-1';
-            const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
-            if (this.mode === 'point') {
-                const dom = this.placePoint(world);
-                this.objects.set(id, { id, kind: 'point', groupId, dom });
-                this.events.fire('inspectionObjects.addItem', { id, kind: 'point', groupId });
-            } else if (this.mode === 'line') {
-                this.placePoint(world);
-                this.updatePolyline();
-                this.objects.set(id, { id, kind: 'line', groupId });
-                this.events.fire('inspectionObjects.addItem', { id, kind: 'line', groupId });
-            } else {
-                this.placePoint(world);
-                this.updatePolygon();
-                this.objects.set(id, { id, kind: 'face', groupId });
-                this.events.fire('inspectionObjects.addItem', { id, kind: 'face', groupId });
-            }
-        };
+                const hit = this.scene.camera.intersect(x, y) as any;
+                if (!hit || !hit.position) return;
+                const world = new Vec3(hit.position.x, hit.position.y, hit.position.z);
+                const groupId = (this.events.invoke('inspectionObjects.currentGroupId') as string) || 'XJDX-1';
+                const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                if (this.mode === 'point') {
+                    const dom = this.placePoint(world);
+                    this.objects.set(id, { id, kind: 'point', groupId, dom });
+                    this.events.fire('inspectionObjects.addItem', { id, kind: 'point', groupId });
+                } else if (this.mode === 'line') {
+                    this.placePoint(world);
+                    this.updatePolyline();
+                    this.objects.set(id, { id, kind: 'line', groupId });
+                    this.events.fire('inspectionObjects.addItem', { id, kind: 'line', groupId });
+                } else {
+                    this.placePoint(world);
+                    this.updatePolygon();
+                    this.objects.set(id, { id, kind: 'face', groupId });
+                    this.events.fire('inspectionObjects.addItem', { id, kind: 'face', groupId });
+                }
+            };
 
             window.addEventListener('pointermove', onMove, true);
             window.addEventListener('pointerup', onUp, true);
         };
         this.canvasContainerDom.addEventListener('pointerdown', onDown);
-        this.canvasContainerDom.addEventListener('contextmenu', (e) => e.preventDefault());
+        // 不拦截 pointerup，确保 Gizmo 能正确收到抬起事件完成一次移动
+        this.canvasContainerDom.addEventListener('contextmenu', e => e.preventDefault());
         this.wireUiEvents();
-
-        // setup gizmo for editing points
-        this.gizmo = new TranslateGizmo(scene.camera.entity.camera, scene.gizmoLayer);
-        this.gizmoEntity = new Entity('inspectionGizmoPivot');
-
-        this.gizmo.on('render:update', () => { this.scene.forceRender = true; });
-        this.gizmo.on('transform:start', () => { this.events.invoke('pivot').start(); });
-        this.gizmo.on('transform:move', () => {
-            const pos = this.gizmoEntity.getLocalPosition();
-            this.events.invoke('pivot').moveTRS(pos, this.gizmoEntity.getLocalRotation(), this.gizmoEntity.getLocalScale());
+        this.events.function('inspectionObjects.isEditing', () => !!this.editingId);
+        this.events.on('camera.focalPointPicked', (details: any) => {
+            const ignore = this.events.invoke('tool.justTransformed');
+            if (ignore) return;
+            if (details && (details.splat || details.model)) return;
             if (this.editingId) {
-                const obj = this.objects.get(this.editingId);
-                if (obj && obj.kind === 'point') {
-                    // update point world position
-                    const point = this.points.find(p => p.dom === obj.dom);
-                    if (point) {
-                        point.world.copy(pos);
-                        this.updateMarker(point);
-                        this.updatePolyline();
-                        this.updatePolygon();
-                    }
-                }
+                this.editingId = null;
+                this.events.fire('inspectionObjects.clearSelection');
+                this.events.fire('tool.deactivate');
             }
         });
-        this.gizmo.on('transform:end', () => { this.events.invoke('pivot').end(); });
+
+        // 采用原生移动工具：不再自行创建TranslateGizmo，改用Pivot事件驱动更新
+        this.gizmoEntity = new Entity('inspectionGizmoPivot');
 
         // listen edit requests from list
         this.events.on('inspectionObjects.edit', (id: string) => {
             const obj = this.objects.get(id);
             if (!obj || obj.kind !== 'point' || !obj.dom) return;
             this.editingId = id;
-            // place pivot and attach gizmo
+            const point = this.points.find(p => p.dom === obj.dom);
+            if (point) {
+                const pivot = this.events.invoke('pivot');
+                const t = new Transform();
+                t.position.copy(point.world);
+                t.rotation.setFromEulerAngles(0, 0, 0);
+                t.scale.set(1, 1, 1);
+                pivot.place(t);
+                this.events.fire('tool.move');
+            }
+        });
+        // 底部移动工具激活时，若有当前编辑目标则附着 Gizmo；切换到非移动则拆除 Gizmo
+        // 监听Pivot事件以更新巡检对象位置（使用原生移动工具的轴与拖拽逻辑）
+        this.events.on('pivot.moved', (pivot: any) => {
+            if (!this.editingId) return;
+            const obj = this.objects.get(this.editingId);
+            if (!obj || obj.kind !== 'point' || !obj.dom) return;
             const point = this.points.find(p => p.dom === obj.dom);
             if (!point) return;
-            const t = { position: point.world, rotation: Quat.IDENTITY, scale: Vec3.ONE } as any;
-            this.events.invoke('pivot').place(t);
-            this.gizmoEntity.setLocalPosition(point.world);
-            this.gizmo.attach(this.gizmoEntity);
-            this.events.fire('transformHandler.push', {} as any);
+            point.world.copy(pivot.transform.position);
+            this.updateMarker(point);
+            this.updatePolyline();
+            this.updatePolygon();
         });
-        window.addEventListener('keydown', (ev: KeyboardEvent) => {
-            if (ev.key === 'Escape' && this.editingId) {
-                this.gizmo.detach();
+        this.events.on('pivot.started', () => {
+            if (this.editingId) this.events.fire('tool.dragging', true);
+        });
+        this.events.on('pivot.ended', () => {
+            if (this.editingId) {
+                this.events.fire('tool.dragging', false);
+                this.events.fire('tool.transformed');
+            }
+        });
+
+        // 当全局选择发生变化（例如选择了巡检点位或其他模型）时，停止巡检对象的编辑响应
+        this.events.on('selection.changed', () => {
+            if (this.editingId) {
                 this.editingId = null;
+            }
+        });
+
+        // 额外兜底：在全局鼠标抬起时强制结束一次移动编辑，避免轴线跟随不止
+        // 使用原生工具，无需兜底拦截pointerup
+        const escHandler = (ev: KeyboardEvent) => {
+            if (ev.key === 'Escape') {
+                if (this.editingId) {
+                    this.editingId = null;
+                }
                 this.events.fire('inspectionObjects.clearSelection');
+                this.events.fire('tool.deactivate');
+                this.events.fire('inspectionObjects.active', false);
+                this.events.fire('tool.deactivate');
+                this.suppressUntil = 0;
+            }
+        };
+        window.addEventListener('keydown', escHandler, true);
+        document.addEventListener('keydown', escHandler, true);
+
+        this.events.on('inspectionObjects.clearSelection', () => {
+            if (this.editingId) {
+                this.editingId = null;
+                this.events.fire('tool.deactivate');
             }
         });
 
@@ -162,10 +198,17 @@ class InspectionObjectTool {
         });
         events.on('inspectionObjects.active', (active: boolean) => {
             this.active = active;
+            if (!active) {
+                if (this.editingId) {
+                    this.editingId = null;
+                }
+                this.events.fire('inspectionObjects.clearSelection');
+                this.events.fire('tool.deactivate');
+            }
         });
         events.on('inspectionObjects.setSize', (size: number) => {
             this.markerSize = Math.max(1, Math.min(256, size));
-            this.points.forEach(p => {
+            this.points.forEach((p) => {
                 p.dom.style.width = `${this.markerSize}px`;
                 p.dom.style.height = `${this.markerSize}px`;
             });
@@ -234,7 +277,7 @@ class InspectionObjectTool {
         pl.setAttribute('fill', 'none');
         pl.setAttribute('stroke', '#ffcc00');
         pl.setAttribute('stroke-width', '2');
-        const pts = this.points.map(p => {
+        const pts = this.points.map((p) => {
             const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
             return `${sp.x},${sp.y}`;
         }).join(' ');
@@ -251,7 +294,7 @@ class InspectionObjectTool {
         pg.setAttribute('fill', 'rgba(255,204,0,0.2)');
         pg.setAttribute('stroke', '#ffcc00');
         pg.setAttribute('stroke-width', '2');
-        const pts = this.points.map(p => {
+        const pts = this.points.map((p) => {
             const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
             return `${sp.x},${sp.y}`;
         }).join(' ');

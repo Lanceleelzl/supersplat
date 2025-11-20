@@ -474,8 +474,10 @@ const main = async () => {
     events.on('inspectionObjects.toggleToolbar', () => {
         inspectionObjectToolbar.hidden = !inspectionObjectToolbar.hidden;
         events.fire('inspectionObjects.active', false);
+        events.fire('inspectionObjects.toolbarVisible', !inspectionObjectToolbar.hidden);
         events.fire('tool.deactivate');
         if (!inspectionObjectToolbar.hidden) {
+            inspectionObjectToolbar.dom.style.display = 'flex';
             const menuBar = document.getElementById('menu-bar');
             if (menuBar) {
                 const rect = menuBar.getBoundingClientRect();
@@ -493,15 +495,12 @@ const main = async () => {
             tt.register(inspectionObjectToolbar.btnPoint, '创建点对象', 'bottom', 0, anchor);
             tt.register(inspectionObjectToolbar.btnLine, '创建带状对象', 'bottom', 0, anchor);
             tt.register(inspectionObjectToolbar.btnFace, '创建面对象', 'bottom', 0, anchor);
+        } else {
+            inspectionObjectToolbar.dom.style.display = 'none';
         }
     });
 
-    // 防止创建巡检对象时误触发背景选择：提供统一的“点击不更新选择”判断
-    let preventSelectionOnClick = false;
-    events.function('tool.preventSelectionOnClick', () => preventSelectionOnClick);
-    events.on('inspectionObjects.active', (active: boolean) => {
-        preventSelectionOnClick = active;
-    });
+    // 统一使用工具管理器中的点击屏蔽逻辑（tool.shouldIgnoreClick / tool.preventSelectionOnClick）
 
     // 巡检视口默认开启，可通过事件开关
     let inspectionViewportEnabled = true;

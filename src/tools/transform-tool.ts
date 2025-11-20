@@ -42,7 +42,9 @@ class TransformTool {
 
         // reattach the gizmo to the pivot
         const reattach = () => {
-            if (!active || !events.invoke('selection')) {
+            const hasSelection = !!events.invoke('selection');
+            const isEditingInspection = !!events.invoke('inspectionObjects.isEditing');
+            if (!active || (!hasSelection && !isEditingInspection)) {
                 if (gizmo.enabled) {
                     gizmo.detach();
                 }

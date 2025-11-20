@@ -299,7 +299,7 @@ class Menu extends Container {
         {
             text: '设置巡检对象',
             icon: createSvg(createTargetSvg),
-            onSelect: () => events.fire('inspectionObjects.toggleToolbar')
+            onSelect: () => { events.fire('inspectionObjects.toggleToolbar'); this.inspectionMenuPanel!.hidden = true; }
         },
         {
             text: localize('inspection.add-point'),
@@ -381,7 +381,7 @@ class Menu extends Container {
             this.updateSnapshotMenuText();
             this.updateAttributeMenuText();
             this.updateFrustumMenuText();
-            this.events.on('inspectionObjects.active', (active: boolean) => {
+            this.events.on('inspectionObjects.toolbarVisible', (active: boolean) => {
                 const menuRows = this.inspectionMenuPanel!.dom.querySelectorAll('.menu-row');
                 const first = menuRows[0];
                 if (first) {

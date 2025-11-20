@@ -11,11 +11,11 @@ import hiddenSvg from './svg/hidden.svg';
 import selectDuplicateSvg from './svg/select-duplicate.svg';
 import selectedSvg from './svg/selected.svg';
 import selectedNoSvg from './svg/selected_NO.svg';
-import shownSvg from './svg/shown.svg';
+import showSvg from './svg/show.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
-    
+
     // 检查是否是data URL格式
     if (svgString.startsWith('data:image/svg+xml,')) {
         svgContent = decodeURIComponent(svgString.substring('data:image/svg+xml,'.length));
@@ -23,7 +23,7 @@ const createSvg = (svgString: string) => {
         // 直接使用SVG字符串内容
         svgContent = svgString;
     }
-    
+
     return new DOMParser().parseFromString(svgContent, 'image/svg+xml').documentElement;
 };
 
@@ -136,7 +136,7 @@ class InspectionPointContainer extends Container {
 
         // 创建标题头部
         this.headerElement = new Container({
-            class: 'inspection-point-header'
+            class: ['inspection-point-header', 'splat-item']
         });
 
         // 创建折叠图标（L型符号）
@@ -148,44 +148,44 @@ class InspectionPointContainer extends Container {
         // 创建巡检点标签
         this.pointLabel = new Label({
             text: pointName,
-            class: 'inspection-point-label'
+            class: ['inspection-point-label', 'splat-item-text']
         });
 
         // 创建操作按钮
         const visible = new PcuiElement({
-            dom: createSvg(shownSvg),
-            class: 'inspection-point-visible'
+            dom: createSvg(showSvg),
+            class: 'splat-item-visible'
         });
 
         const invisible = new PcuiElement({
             dom: createSvg(hiddenSvg),
-            class: 'inspection-point-visible',
+            class: 'splat-item-visible',
             hidden: true
         });
 
         // 添加可选/不可选按钮
         this.selectableButton = new PcuiElement({
             dom: createSvg(selectedSvg),
-            class: 'inspection-point-selectable'
+            class: 'splat-item-selectable'
         });
         this.selectableButton.dom.title = '可选中';
 
         this.unselectableButton = new PcuiElement({
             dom: createSvg(selectedNoSvg),
-            class: 'inspection-point-selectable',
+            class: 'splat-item-selectable',
             hidden: true
         });
         this.unselectableButton.dom.title = '不可选中';
 
         const duplicate = new PcuiElement({
             dom: createSvg(selectDuplicateSvg),
-            class: 'inspection-point-duplicate'
+            class: 'splat-item-duplicate'
         });
         duplicate.dom.title = '原位复制巡检点位';
 
         const remove = new PcuiElement({
             dom: createSvg(deleteSvg),
-            class: 'inspection-point-delete'
+            class: 'splat-item-delete'
         });
         remove.dom.title = '删除巡检点位';
 
@@ -367,12 +367,12 @@ class InspectionObjectGroupContainer extends Container {
         this.events = events;
         this.groupId = groupId;
 
-        this.headerElement = new Container({ class: 'inspection-point-header' });
+        this.headerElement = new Container({ class: ['inspection-point-header', 'splat-item'] });
         this.collapseIcon = new PcuiElement({ dom: createSvg(collapseSvg), class: 'inspection-point-collapse-icon' });
-        this.groupLabel = new Label({ text: groupId, class: 'inspection-point-label' });
+        this.groupLabel = new Label({ text: groupId, class: ['inspection-point-label', 'splat-item-text'] });
 
-        const visible = new PcuiElement({ dom: createSvg(shownSvg), class: 'inspection-point-visible' });
-        const invisible = new PcuiElement({ dom: createSvg(hiddenSvg), class: 'inspection-point-visible', hidden: true });
+        const visible = new PcuiElement({ dom: createSvg(showSvg), class: 'splat-item-visible' });
+        const invisible = new PcuiElement({ dom: createSvg(hiddenSvg), class: 'splat-item-visible', hidden: true });
         const selectable = new PcuiElement({ dom: createSvg(selectedSvg), class: 'inspection-point-selectable' });
         const unselectable = new PcuiElement({ dom: createSvg(selectedNoSvg), class: 'inspection-point-selectable', hidden: true });
         const duplicate = new PcuiElement({ dom: createSvg(selectDuplicateSvg), class: 'inspection-point-duplicate' });
@@ -394,8 +394,12 @@ class InspectionObjectGroupContainer extends Container {
         this.append(this.contentContainer);
 
         // collapse
-        this.collapseIcon.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.toggleCollapse(); });
-        this.groupLabel.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.toggleCollapse(); });
+        this.collapseIcon.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); this.toggleCollapse();
+        });
+        this.groupLabel.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); this.toggleCollapse();
+        });
 
         // visibility toggle affects children items
         const setVisible = (v: boolean) => {
@@ -407,8 +411,12 @@ class InspectionObjectGroupContainer extends Container {
             });
             this.events.fire('inspectionObjects.groupSetVisible', this.groupId, v);
         };
-        visible.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setVisible(false); visible.hidden = true; invisible.hidden = false; });
-        invisible.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setVisible(true); visible.hidden = false; invisible.hidden = true; });
+        visible.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); setVisible(false); visible.hidden = true; invisible.hidden = false;
+        });
+        invisible.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); setVisible(true); visible.hidden = false; invisible.hidden = true;
+        });
 
         // selectable toggle affects children items
         const setSelectable = (v: boolean) => {
@@ -420,11 +428,17 @@ class InspectionObjectGroupContainer extends Container {
                 if (id) this.events.fire('inspectionObjects.setSelectable', id, v);
             });
         };
-        selectable.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setSelectable(false); selectable.hidden = true; unselectable.hidden = false; });
-        unselectable.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); setSelectable(true); selectable.hidden = false; unselectable.hidden = true; });
+        selectable.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); setSelectable(false); selectable.hidden = true; unselectable.hidden = false;
+        });
+        unselectable.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); setSelectable(true); selectable.hidden = false; unselectable.hidden = true;
+        });
 
         // duplicate -> add empty group (handled outside via event)
-        duplicate.dom.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.emit('duplicateClicked', this.groupId); });
+        duplicate.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation(); this.emit('duplicateClicked', this.groupId);
+        });
         remove.dom.addEventListener('click', (e: MouseEvent) => {
             e.stopPropagation();
             // 删除所有子项对应的场景对象
@@ -453,9 +467,15 @@ class InspectionObjectGroupContainer extends Container {
         }
     }
 
-    appendToContent(el: PcuiElement) { this.contentContainer.append(el); }
-    removeFromContent(el: PcuiElement) { this.contentContainer.remove(el); }
-    isEmpty() { return this.contentContainer.dom.children.length === 0; }
+    appendToContent(el: PcuiElement) {
+        this.contentContainer.append(el);
+    }
+    removeFromContent(el: PcuiElement) {
+        this.contentContainer.remove(el);
+    }
+    isEmpty() {
+        return this.contentContainer.dom.children.length === 0;
+    }
 }
 
 class SplatItem extends Container {
@@ -483,13 +503,13 @@ class SplatItem extends Container {
         });
 
         const visible = new PcuiElement({
-            dom: createSvg(shownSvg),
-            class: 'splat-item-visible'
+            dom: createSvg(showSvg),
+            class: 'inspection-point-visible'
         });
 
         const invisible = new PcuiElement({
             dom: createSvg(hiddenSvg),
-            class: 'splat-item-visible',
+            class: 'inspection-point-visible',
             hidden: true
         });
 
@@ -642,6 +662,7 @@ class SplatItem extends Container {
             // 如果点击的是按钮，就不处理选择
             const target = event.target as HTMLElement;
             if (target.closest('.splat-item-visible') ||
+                target.closest('.splat-item-invisible') ||
                 target.closest('.splat-item-selectable') ||
                 target.closest('.splat-item-duplicate') ||
                 target.closest('.splat-item-delete')) {
@@ -708,7 +729,8 @@ class SplatList extends Container {
     private currentGroupId: string | null = null;
     private groupCounter = 0;
     private itemCounters: Map<string, number> = new Map();
-    private inspectionObjectItems: Map<string, { item: SplatItem; groupId: string }> = new Map();
+    private inspectionObjectItems: Map<string, SplatItem> = new Map();
+    private inspectionObjectItemGroups: Map<string, string> = new Map();
 
     constructor(events: Events, args = {}) {
         args = {
@@ -799,31 +821,35 @@ class SplatList extends Container {
             item.class.add('no-duplicate');
             (group as any).appendToContent(item);
             (item.dom as HTMLElement).dataset.inspectionId = payload.id;
-            this.inspectionObjectItems.set(payload.id, { item, groupId: gid });
+            this.inspectionObjectItems.set(payload.id, item);
+            this.inspectionObjectItems.set(payload.id, item);
+            this.inspectionObjectItemGroups.set(payload.id, gid);
             item.on('click', () => {
                 this.currentGroupId = gid;
-                // 选中高亮：同组其他子项取消选中
-                const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
-                if (content) {
-                    Array.from(content.children).forEach((child: any) => {
-                        const ui = child.__ui as SplatItem | undefined;
-                        if (ui && typeof ui.selected !== 'undefined') ui.selected = false;
-                    });
-                }
+                // 全局清除所有子项的选中高亮，然后仅选中当前项
+                events.fire('inspectionObjects.clearSelection');
+                events.fire('selection', null);
                 item.selected = true;
                 events.fire('inspectionObjects.edit', payload.id);
             });
             item.on('removeClicked', () => {
                 (group as any).removeFromContent(item);
                 events.fire('inspectionObjects.removeItem', payload.id);
+                this.inspectionObjectItems.delete(payload.id);
             });
             item.on('rename', (value: string) => {
                 item.name = value;
                 // 可根据需要将名称同步到工具
             });
-            item.on('visible', () => { events.fire('inspectionObjects.setVisible', payload.id, true); });
-            item.on('invisible', () => { events.fire('inspectionObjects.setVisible', payload.id, false); });
-            item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => { events.fire('inspectionObjects.setSelectable', payload.id, selectable); });
+            item.on('visible', () => {
+                events.fire('inspectionObjects.setVisible', payload.id, true);
+            });
+            item.on('invisible', () => {
+                events.fire('inspectionObjects.setVisible', payload.id, false);
+            });
+            item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => {
+                events.fire('inspectionObjects.setSelectable', payload.id, selectable);
+            });
         };
 
         // 监听工具添加对象事件
@@ -832,14 +858,8 @@ class SplatList extends Container {
         });
         // 清除子项选中高亮
         events.on('inspectionObjects.clearSelection', () => {
-            this.inspectionObjectsGroups.forEach((group) => {
-                const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
-                if (content) {
-                    Array.from(content.children).forEach((child: any) => {
-                        const ui = child.__ui as SplatItem | undefined;
-                        if (ui && typeof ui.selected !== 'undefined') ui.selected = false;
-                    });
-                }
+            this.inspectionObjectItems.forEach((item) => {
+                item.selected = false;
             });
         });
         // 初始化默认组
@@ -847,25 +867,11 @@ class SplatList extends Container {
         // 提供当前选中组查询
         events.function('inspectionObjects.currentGroupId', () => this.currentGroupId || nextGroupId());
 
-        // 父级显隐时同步更新子项的图标显隐状态
         events.on('inspectionObjects.groupSetVisible', (groupId: string, visible: boolean) => {
-            const group = this.inspectionObjectsGroups.get(groupId);
-            if (!group) return;
-            const content = (group as any).dom.querySelector('.inspection-point-content') as HTMLElement;
-            if (!content) return;
-            Array.from(content.children).forEach((child: any) => {
-                const ui = child.__ui as SplatItem | undefined;
-                if (ui && typeof ui.visible !== 'undefined') ui.visible = visible;
-                const visEl = child.querySelector('.splat-item-visible') as HTMLElement | null;
-                const invisEl = child.querySelector('.splat-item-invisible') as HTMLElement | null;
-                if (visEl && invisEl) {
-                    visEl.hidden = !visible;
-                    invisEl.hidden = visible;
+            this.inspectionObjectItems.forEach((item, id) => {
+                if (this.inspectionObjectItemGroups.get(id) === groupId) {
+                    item.visible = visible;
                 }
-            });
-            // 同步通过映射确保 setter 生效
-            this.inspectionObjectItems.forEach(({ item, groupId: gid }) => {
-                if (gid === groupId) item.visible = visible;
             });
         });
 
@@ -903,7 +909,7 @@ class SplatList extends Container {
                 item.on('duplicateClicked', () => {
                     // Splat模型暂不支持复制功能，可在后续版本中实现
                     console.log('Splat模型复制功能暂未实现');
-+                   events.fire('showToast', 'Splat 不支持复制');
+                    +events.fire('showToast', 'Splat 不支持复制');
                 });
                 item.on('removeClicked', () => {
                     console.log('SplatItem removeClicked 事件被触发，转发到 SplatList');
@@ -1062,6 +1068,9 @@ class SplatList extends Container {
         events.on('selection.changed', (selection: Splat | GltfModel) => {
             items.forEach((value, key) => {
                 value.selected = key === selection;
+            });
+            this.inspectionObjectItems.forEach((item) => {
+                item.selected = false;
             });
         });
 
