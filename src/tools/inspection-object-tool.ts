@@ -43,6 +43,7 @@ class InspectionObjectTool {
         this.svg.style.width = '100%';
         this.svg.style.height = '100%';
         this.svg.style.pointerEvents = 'none';
+        this.svg.style.zIndex = '50';
         this.canvasContainerDom.appendChild(this.svg);
 
         const onDown = (e: PointerEvent) => {
@@ -320,7 +321,7 @@ class InspectionObjectTool {
         el.style.position = 'absolute';
         el.style.pointerEvents = 'none';
         el.style.transform = 'translate(-50%, -100%)';
-        el.style.zIndex = '100';
+        el.style.zIndex = '50';
         el.style.width = `${this.markerSize}px`;
         el.style.height = `${this.markerSize}px`;
         this.canvasContainerDom.appendChild(el);
