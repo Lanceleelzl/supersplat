@@ -170,14 +170,7 @@
         }
     }
 
-    // 巡检点位样式
-    .category-container {
-        &:last-child {
-            .category-label {
-                color: #4CAF50; // 巡检点位使用绿色
-            }
-        }
-    }
+    
 
     // 巡检点位容器样式
 .inspection-point-container {
@@ -199,6 +192,11 @@
             &:hover, &.hover {
                 background-color: rgba(76, 175, 80, 0.12);
             }
+        }
+
+        &.selected .inspection-point-header {
+            background-color: rgba(76, 175, 80, 0.20);
+            border-left-color: #2E7D32;
         }
 
         .inspection-point-collapse-icon {

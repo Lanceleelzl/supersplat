@@ -124,8 +124,10 @@ class InspectionPointContainer extends Container {
     private _selectable: boolean = true;
     private selectableButton: PcuiElement;
     private unselectableButton: PcuiElement;
+    private events?: Events;
+    private _expanding = false;
 
-    constructor(pointName: string, args = {}) {
+    constructor(pointName: string, events?: Events, args = {}) {
         args = {
             ...args,
             class: ['inspection-point-container']
@@ -133,6 +135,7 @@ class InspectionPointContainer extends Container {
         super(args);
 
         this.pointName = pointName;
+        this.events = events;
 
         // 创建标题头部
         this.headerElement = new Container({
@@ -211,11 +214,15 @@ class InspectionPointContainer extends Container {
         // 绑定头部点击事件（只在标签和折叠图标上触发）
         this.collapseIcon.dom.addEventListener('click', (event: MouseEvent) => {
             event.stopPropagation();
+            this.emit('click', this.pointName);
+            this.events?.fire?.('inspectionPoints.groupSelected', this.pointName);
             this.toggleCollapse();
         });
 
         this.pointLabel.dom.addEventListener('click', (event: MouseEvent) => {
             event.stopPropagation();
+            this.emit('click', this.pointName);
+            this.events?.fire?.('inspectionPoints.groupSelected', this.pointName);
             this.toggleCollapse();
         });
 
@@ -267,18 +274,41 @@ class InspectionPointContainer extends Container {
         this.headerElement.dom.addEventListener('mouseleave', () => {
             this.headerElement.class.remove('hover');
         });
+
+        this.headerElement.dom.addEventListener('click', () => {
+            this.events?.fire?.('inspectionPoints.groupSelected', this.pointName);
+        });
+
+        this.events?.on?.('inspectionPoints.groupSelected', (name: string) => {
+            if (name === this.pointName) {
+                this.class.add('selected');
+                this.collapsed = false;
+            } else {
+                this.class.remove('selected');
+            }
+        });
     }
 
     toggleCollapse() {
+        if (this._expanding) return;
         this._collapsed = !this._collapsed;
         if (this._collapsed) {
             this.contentContainer.hidden = true;
             this.collapseIcon.dom.style.transform = 'rotate(-90deg)';
             this.class.add('collapsed');
+            this.class.remove('selected');
         } else {
-            this.contentContainer.hidden = false;
-            this.collapseIcon.dom.style.transform = 'rotate(0deg)';
-            this.class.remove('collapsed');
+            this._expanding = true;
+            this.contentContainer.dom.style.visibility = 'hidden';
+            requestAnimationFrame(() => {
+                this.contentContainer.hidden = false;
+                this.collapseIcon.dom.style.transform = 'rotate(0deg)';
+                this.class.remove('collapsed');
+                requestAnimationFrame(() => {
+                    this.contentContainer.dom.style.visibility = '';
+                    this._expanding = false;
+                });
+            });
         }
     }
 
@@ -357,6 +387,7 @@ class InspectionObjectGroupContainer extends Container {
     private _selectable = true;
     private events: Events;
     private groupId: string;
+    private _expanding = false;
 
     constructor(groupId: string, events: Events, args = {}) {
         args = {
@@ -395,10 +426,18 @@ class InspectionObjectGroupContainer extends Container {
 
         // collapse
         this.collapseIcon.dom.addEventListener('click', (e: MouseEvent) => {
-            e.stopPropagation(); this.toggleCollapse();
+            e.stopPropagation();
+            this.events.fire('inspectionObjects.groupSelected', this.groupId);
+            this.toggleCollapse();
         });
         this.groupLabel.dom.addEventListener('click', (e: MouseEvent) => {
-            e.stopPropagation(); this.toggleCollapse();
+            e.stopPropagation();
+            this.events.fire('inspectionObjects.groupSelected', this.groupId);
+            this.toggleCollapse();
+        });
+        this.headerElement.dom.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation();
+            this.events.fire('inspectionObjects.groupSelected', this.groupId);
         });
 
         // visibility toggle affects children items
@@ -452,18 +491,43 @@ class InspectionObjectGroupContainer extends Container {
         // hover effect
         this.headerElement.dom.addEventListener('mouseenter', () => this.headerElement.class.add('hover'));
         this.headerElement.dom.addEventListener('mouseleave', () => this.headerElement.class.remove('hover'));
+
+        this.events.on('inspectionObjects.groupSelected', (gid: string) => {
+            if (gid === this.groupId) {
+                this.class.add('selected');
+                if (this._collapsed) this.toggleCollapse();
+            } else {
+                this.class.remove('selected');
+            }
+        });
+        try {
+            const current = this.events.invoke('inspectionObjects.currentGroupId') as string;
+            if (current === this.groupId) {
+                this.class.add('selected');
+            }
+        } catch {}
     }
 
     toggleCollapse() {
+        if (this._expanding) return;
         this._collapsed = !this._collapsed;
         if (this._collapsed) {
             this.contentContainer.hidden = true;
             this.collapseIcon.dom.style.transform = 'rotate(-90deg)';
             this.class.add('collapsed');
+            this.class.remove('selected');
         } else {
-            this.contentContainer.hidden = false;
-            this.collapseIcon.dom.style.transform = 'rotate(0deg)';
-            this.class.remove('collapsed');
+            this._expanding = true;
+            this.contentContainer.dom.style.visibility = 'hidden';
+            requestAnimationFrame(() => {
+                this.contentContainer.hidden = false;
+                this.collapseIcon.dom.style.transform = 'rotate(0deg)';
+                this.class.remove('collapsed');
+                requestAnimationFrame(() => {
+                    this.contentContainer.dom.style.visibility = '';
+                    this._expanding = false;
+                });
+            });
         }
     }
 
@@ -850,6 +914,8 @@ class SplatList extends Container {
             item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => {
                 events.fire('inspectionObjects.setSelectable', payload.id, selectable);
             });
+
+            events.fire('inspectionObjects.groupSelected', gid);
         };
 
         // 监听工具添加对象事件
@@ -865,7 +931,10 @@ class SplatList extends Container {
         // 初始化默认组
         ensureGroup();
         // 提供当前选中组查询
-        events.function('inspectionObjects.currentGroupId', () => this.currentGroupId || nextGroupId());
+        events.function('inspectionObjects.currentGroupId', () => this.currentGroupId);
+        events.on('inspectionObjects.groupSelected', (gid: string) => {
+            this.currentGroupId = gid;
+        });
 
         events.on('inspectionObjects.groupSetVisible', (groupId: string, visible: boolean) => {
             this.inspectionObjectItems.forEach((item, id) => {
@@ -932,7 +1001,7 @@ class SplatList extends Container {
 
                     if (!pointContainer) {
                         // 创建新的巡检点容器
-                        pointContainer = new InspectionPointContainer(inspectionPointName);
+                        pointContainer = new InspectionPointContainer(inspectionPointName, events);
                         this.inspectionPoints.set(inspectionPointName, pointContainer);
                         this.inspectionCategory.appendToContent(pointContainer);
 
@@ -971,6 +1040,7 @@ class SplatList extends Container {
 
                     // 添加到巡检点容器
                     pointContainer.appendChild(item);
+                    events.fire('inspectionPoints.groupSelected', inspectionPointName);
                     items.set(model, item);
                 } else {
                     // 普通GLTF模型
