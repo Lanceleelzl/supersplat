@@ -20,6 +20,7 @@ class InspectionObjectTool {
     private canvasContainerDom: HTMLElement;
     private mode: Mode = 'point';
     private markerSize = 30;
+    private step = 0.1;
     private points: { dom: HTMLElement; world: Vec3 }[] = [];
     private svg: SVGSVGElement | null = null;
     private active = false;
@@ -221,14 +222,90 @@ class InspectionObjectTool {
             this.updatePolyline();
             this.updatePolygon();
         });
+
+        const onArrow = (dir: 'up' | 'down' | 'left' | 'right', e: KeyboardEvent) => {
+            if (!this.active || !this.editingId) return;
+            const obj = this.objects.get(this.editingId);
+            if (!obj || obj.kind !== 'point' || !obj.dom) return;
+            const pivot = this.events.invoke('pivot');
+            if (!pivot) return;
+            const camEntity = this.scene.camera.entity;
+            const mul = e.shiftKey ? 10 : ((e.ctrlKey || e.metaKey || e.altKey) ? 0.1 : 1);
+            const s = this.step * mul;
+            const worldDelta = new Vec3(0, 0, 0);
+            switch (dir) {
+                case 'up':
+                    worldDelta.add(camEntity.up.clone().mulScalar(s));
+                    break;
+                case 'down':
+                    worldDelta.add(camEntity.up.clone().mulScalar(-s));
+                    break;
+                case 'left':
+                    worldDelta.add(camEntity.right.clone().mulScalar(-s));
+                    break;
+                case 'right':
+                    worldDelta.add(camEntity.right.clone().mulScalar(s));
+                    break;
+            }
+            const newPos = new Vec3();
+            newPos.copy(pivot.transform.position).add(worldDelta);
+            pivot.start();
+            pivot.moveTRS(newPos, pivot.transform.rotation as Quat, pivot.transform.scale);
+            pivot.end();
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        const keydown = (e: KeyboardEvent) => {
+            if (!this.active) return;
+            switch (e.key) {
+                case 'ArrowUp':
+                    onArrow('up', e);
+                    break;
+                case 'ArrowDown':
+                    onArrow('down', e);
+                    break;
+                case 'ArrowLeft':
+                    onArrow('left', e);
+                    break;
+                case 'ArrowRight':
+                    onArrow('right', e);
+                    break;
+            }
+        };
+        const keyup = (e: KeyboardEvent) => {
+            if (!this.active) return;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+        (this as any)._keydownHandler = keydown;
+        (this as any)._keyupHandler = keyup;
     }
 
     activate() {
         this.active = true;
+        const handler = (this as any)._keydownHandler as (e: KeyboardEvent) => void;
+        const upHandler = (this as any)._keyupHandler as (e: KeyboardEvent) => void;
+        if (handler) {
+            document.addEventListener('keydown', handler, true);
+        }
+        if (upHandler) {
+            document.addEventListener('keyup', upHandler, true);
+        }
     }
 
     deactivate() {
         this.active = false;
+        const handler = (this as any)._keydownHandler as (e: KeyboardEvent) => void;
+        const upHandler = (this as any)._keyupHandler as (e: KeyboardEvent) => void;
+        if (handler) {
+            document.removeEventListener('keydown', handler, true);
+        }
+        if (upHandler) {
+            document.removeEventListener('keyup', upHandler, true);
+        }
     }
 
     private allocId(kind: 'point'|'line'|'face') {

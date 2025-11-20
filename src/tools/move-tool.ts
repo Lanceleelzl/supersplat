@@ -57,15 +57,11 @@ class MoveTool extends TransformTool {
         // 监听箭头键事件（由快捷键系统派发）
         const onArrow = (dir: 'up' | 'down' | 'left' | 'right') => {
             if (!this.active) return;
-            // 仅在正交（正视）模式下启用按键微调
-            if (!this.scene.camera.ortho) return;
             const activeTool = events.invoke('tool.active');
             if (activeTool !== 'move') return;
 
-            const selection = events.invoke('selection');
-            if (!selection) return;
-
             const pivot = events.invoke('pivot') as Pivot;
+            if (!pivot) return;
             // 屏幕方向：使用相机的世界空间right/up向量
             const camEntity = this.scene.camera.entity;
             const worldDelta = new Vec3(0, 0, 0);
@@ -133,26 +129,20 @@ class MoveTool extends TransformTool {
         (this as any)._keydownHandler = keydown;
         (this as any)._keyupHandler = keyup;
         // 保存正交状态监听器：正交时显示并启用；透视时隐藏并禁用
-        (this as any)._orthoListener = (value: boolean) => {
-            const isOrtho = !!value;
+        (this as any)._orthoListener = (_value: boolean) => {
             if (this.stepInput) {
-                this.stepInput.enabled = isOrtho;
+                this.stepInput.enabled = true;
             }
             const repositionFn = (this as any)._reposition as () => void;
             if (this.selectToolbar) {
-                if (isOrtho) {
-                    // 在显示前先定位，避免闪现
-                    const prevVis = this.selectToolbar.dom.style.visibility;
-                    const prevOp = this.selectToolbar.dom.style.opacity;
-                    this.selectToolbar.hidden = false;
-                    this.selectToolbar.dom.style.visibility = 'hidden';
-                    this.selectToolbar.dom.style.opacity = '0';
-                    if (repositionFn) repositionFn();
-                    this.selectToolbar.dom.style.visibility = prevVis || '';
-                    this.selectToolbar.dom.style.opacity = prevOp || '';
-                } else {
-                    this.selectToolbar.hidden = true;
-                }
+                const prevVis = this.selectToolbar.dom.style.visibility;
+                const prevOp = this.selectToolbar.dom.style.opacity;
+                this.selectToolbar.hidden = false;
+                this.selectToolbar.dom.style.visibility = 'hidden';
+                this.selectToolbar.dom.style.opacity = '0';
+                if (repositionFn) repositionFn();
+                this.selectToolbar.dom.style.visibility = prevVis || '';
+                this.selectToolbar.dom.style.opacity = prevOp || '';
             }
         };
 
@@ -201,23 +191,17 @@ class MoveTool extends TransformTool {
         this.activate = () => {
             parentActivate();
             this.active = true;
-            // 根据当前相机投影启用/禁用输入框，并在显示前先定位
-            const isOrtho = this.scene.camera.ortho;
-            this.stepInput.enabled = isOrtho;
+            this.stepInput.enabled = true;
             const repositionFn = (this as any)._reposition as () => void;
             if (this.selectToolbar) {
-                if (isOrtho) {
-                    const prevVis = this.selectToolbar.dom.style.visibility;
-                    const prevOp = this.selectToolbar.dom.style.opacity;
-                    this.selectToolbar.hidden = false;
-                    this.selectToolbar.dom.style.visibility = 'hidden';
-                    this.selectToolbar.dom.style.opacity = '0';
-                    if (repositionFn) repositionFn();
-                    this.selectToolbar.dom.style.visibility = prevVis || '';
-                    this.selectToolbar.dom.style.opacity = prevOp || '';
-                } else {
-                    this.selectToolbar.hidden = true;
-                }
+                const prevVis = this.selectToolbar.dom.style.visibility;
+                const prevOp = this.selectToolbar.dom.style.opacity;
+                this.selectToolbar.hidden = false;
+                this.selectToolbar.dom.style.visibility = 'hidden';
+                this.selectToolbar.dom.style.opacity = '0';
+                if (repositionFn) repositionFn();
+                this.selectToolbar.dom.style.visibility = prevVis || '';
+                this.selectToolbar.dom.style.opacity = prevOp || '';
             }
             // 激活时监听键盘方向键
             const handler = (this as any)._keydownHandler as (e: KeyboardEvent) => void;
