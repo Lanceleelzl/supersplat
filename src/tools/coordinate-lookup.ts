@@ -333,7 +333,8 @@ class CoordinateLookupTool {
         const camEntity = this.scene.camera.entity;
         const camComp = camEntity.camera;
         const sp = camComp.worldToScreen(this.markerWorld, new Vec3());
-        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || sp.z < 0) {
+        const isOrtho = this.scene.camera.ortho;
+        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) {
             el.style.display = 'none';
             return;
         }
@@ -366,7 +367,8 @@ class CoordinateLookupTool {
         }
 
         const sp = camComp.worldToScreen(this.markerWorld, new Vec3());
-        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || sp.z < 0) {
+        const isOrtho = this.scene.camera.ortho;
+        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) {
             entity.enabled = false;
             return;
         }

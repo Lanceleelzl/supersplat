@@ -336,7 +336,8 @@ class InspectionObjectTool {
             return;
         }
         const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
-        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || sp.z < 0) {
+        const isOrtho = this.scene.camera.ortho;
+        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) {
             p.dom.style.display = 'none';
         } else {
             p.dom.style.display = 'block';
