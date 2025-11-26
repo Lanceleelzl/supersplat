@@ -7,11 +7,17 @@ import { GltfModel } from '../gltf-model';
 import { Splat } from '../splat';
 import collapseSvg from './svg/collapse.svg';
 import deleteSvg from './svg/delete.svg';
+import faceSvg from './svg/face.svg';
 import hiddenSvg from './svg/hidden.svg';
+import pointSvg from './svg/point.svg';
+import polylineSvg from './svg/polyline.svg';
 import selectDuplicateSvg from './svg/select-duplicate.svg';
 import selectedSvg from './svg/selected.svg';
 import selectedNoSvg from './svg/selected_NO.svg';
 import showSvg from './svg/show.svg';
+import vertexSvg from './svg/vertex.svg';
+import zhankaiSvg from './svg/zhankai.svg';
+import zhedieSvg from './svg/zhedie.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -192,15 +198,36 @@ class InspectionPointContainer extends Container {
         });
         remove.dom.title = '删除巡检点位';
 
-        // 组装头部
-        this.headerElement.append(this.collapseIcon);
+        (this.headerElement.dom as HTMLElement).style.display = 'grid';
+        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerElement.dom as HTMLElement).style.alignItems = 'center';
+        (this.headerElement.dom as HTMLElement).style.columnGap = '0px';
+        (this.headerElement.dom as HTMLElement).style.width = '100%';
+        (this.headerElement.dom as HTMLElement).style.boxSizing = 'border-box';
+
+        const leftWrap = new Container({ class: 'splat-item-left' });
+        (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (leftWrap.dom as HTMLElement).style.alignItems = 'center';
+        (leftWrap.dom as HTMLElement).style.gap = '4px';
+        (leftWrap.dom as HTMLElement).style.width = '40px';
+        leftWrap.append(this.collapseIcon);
+
+        const actionsWrap = new Container({ class: 'splat-item-actions' });
+        (actionsWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (actionsWrap.dom as HTMLElement).style.gap = '6px';
+        (actionsWrap.dom as HTMLElement).style.flex = '0 0 auto';
+        (actionsWrap.dom as HTMLElement).style.width = '105px';
+        (actionsWrap.dom as HTMLElement).style.justifyContent = 'flex-end';
+        actionsWrap.append(visible);
+        actionsWrap.append(invisible);
+        actionsWrap.append(this.selectableButton);
+        actionsWrap.append(this.unselectableButton);
+        actionsWrap.append(duplicate);
+        actionsWrap.append(remove);
+
+        this.headerElement.append(leftWrap);
         this.headerElement.append(this.pointLabel);
-        this.headerElement.append(visible);
-        this.headerElement.append(invisible);
-        this.headerElement.append(this.selectableButton);
-        this.headerElement.append(this.unselectableButton);
-        this.headerElement.append(duplicate);
-        this.headerElement.append(remove);
+        this.headerElement.append(actionsWrap);
 
         // 创建内容容器（子项容器）
         this.contentContainer = new Container({
@@ -411,14 +438,36 @@ class InspectionObjectGroupContainer extends Container {
         const remove = new PcuiElement({ dom: createSvg(deleteSvg), class: 'inspection-point-delete' });
         remove.dom.title = '删除分组';
 
-        this.headerElement.append(this.collapseIcon);
+        (this.headerElement.dom as HTMLElement).style.display = 'grid';
+        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerElement.dom as HTMLElement).style.alignItems = 'center';
+        (this.headerElement.dom as HTMLElement).style.columnGap = '0px';
+        (this.headerElement.dom as HTMLElement).style.width = '100%';
+        (this.headerElement.dom as HTMLElement).style.boxSizing = 'border-box';
+
+        const leftWrap = new Container({ class: 'splat-item-left' });
+        (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (leftWrap.dom as HTMLElement).style.alignItems = 'center';
+        (leftWrap.dom as HTMLElement).style.gap = '4px';
+        (leftWrap.dom as HTMLElement).style.width = '40px';
+        leftWrap.append(this.collapseIcon);
+
+        const actionsWrap = new Container({ class: 'splat-item-actions' });
+        (actionsWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (actionsWrap.dom as HTMLElement).style.gap = '6px';
+        (actionsWrap.dom as HTMLElement).style.flex = '0 0 auto';
+        (actionsWrap.dom as HTMLElement).style.width = '105px';
+        (actionsWrap.dom as HTMLElement).style.justifyContent = 'flex-end';
+        actionsWrap.append(visible);
+        actionsWrap.append(invisible);
+        actionsWrap.append(selectable);
+        actionsWrap.append(unselectable);
+        actionsWrap.append(duplicate);
+        actionsWrap.append(remove);
+
+        this.headerElement.append(leftWrap);
         this.headerElement.append(this.groupLabel);
-        this.headerElement.append(visible);
-        this.headerElement.append(invisible);
-        this.headerElement.append(selectable);
-        this.headerElement.append(unselectable);
-        this.headerElement.append(duplicate);
-        this.headerElement.append(remove);
+        this.headerElement.append(actionsWrap);
 
         this.contentContainer = new Container({ class: 'inspection-point-content' });
         this.append(this.headerElement);
@@ -551,6 +600,12 @@ class SplatItem extends Container {
     setVisible: (value: boolean) => void;
     getSelectable: () => boolean;
     setSelectable: (value: boolean) => void;
+    public headerWrap: Container;
+    public toggleLabel: Label;
+    public textLabel: Label;
+    public toggleCollapse: PcuiElement;
+    public toggleExpand: PcuiElement;
+    public childrenWrap: Container;
     destroy: () => void;
 
     constructor(name: string, edit: TextInput, args = {}) {
@@ -561,19 +616,53 @@ class SplatItem extends Container {
 
         super(args);
 
+        this.headerWrap = new Container({ class: 'splat-item-header' });
+        (this.headerWrap.dom as HTMLElement).style.display = 'grid';
+        (this.headerWrap.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerWrap.dom as HTMLElement).style.alignItems = 'center';
+        (this.headerWrap.dom as HTMLElement).style.columnGap = '0px';
+        (this.headerWrap.dom as HTMLElement).style.width = '100%';
+        (this.headerWrap.dom as HTMLElement).style.boxSizing = 'border-box';
+        (this.dom as HTMLElement).style.display = 'flex';
+        (this.dom as HTMLElement).style.flexDirection = 'column';
+        (this.dom as HTMLElement).style.width = '100%';
+        (this.dom as HTMLElement).style.boxSizing = 'border-box';
+
+        this.toggleLabel = new Label({ class: 'splat-item-toggle', text: '' });
+        (this.toggleLabel.dom as HTMLElement).style.width = '0px';
+        (this.toggleLabel.dom as HTMLElement).style.textAlign = 'center';
+        (this.toggleLabel.dom as HTMLElement).style.userSelect = 'none';
+        this.toggleCollapse = new PcuiElement({ dom: createSvg(zhedieSvg), class: 'splat-item-toggle-icon' });
+        (this.toggleCollapse.dom as HTMLElement).style.width = '16px';
+        (this.toggleCollapse.dom as HTMLElement).style.height = '16px';
+        (this.toggleCollapse.dom as HTMLElement).style.display = 'inline-block';
+        (this.toggleCollapse.dom as HTMLElement).style.visibility = 'hidden';
+        this.toggleExpand = new PcuiElement({ dom: createSvg(zhankaiSvg), class: 'splat-item-toggle-icon' });
+        (this.toggleExpand.dom as HTMLElement).style.width = '16px';
+        (this.toggleExpand.dom as HTMLElement).style.height = '16px';
+        (this.toggleExpand.dom as HTMLElement).style.display = 'inline-block';
+        (this.toggleExpand.dom as HTMLElement).style.visibility = 'hidden';
+
         const text = new Label({
             class: 'splat-item-text',
             text: name
         });
+        this.textLabel = text;
+        (text.dom as HTMLElement).style.flex = '1 1 auto';
+        (text.dom as HTMLElement).style.whiteSpace = 'nowrap';
+        (text.dom as HTMLElement).style.overflow = 'hidden';
+        (text.dom as HTMLElement).style.textOverflow = 'ellipsis';
+        (text.dom as HTMLElement).style.minWidth = '0';
+        (text.dom as HTMLElement).style.width = '100%';
 
         const visible = new PcuiElement({
             dom: createSvg(showSvg),
-            class: 'inspection-point-visible'
+            class: 'splat-item-visible'
         });
 
         const invisible = new PcuiElement({
             dom: createSvg(hiddenSvg),
-            class: 'inspection-point-visible',
+            class: 'splat-item-visible',
             hidden: true
         });
 
@@ -601,13 +690,41 @@ class SplatItem extends Container {
         });
         unselectable.dom.title = '不可选中';
 
-        this.append(text);
-        this.append(visible);
-        this.append(invisible);
-        this.append(selectable);
-        this.append(unselectable);
-        this.append(duplicate);
-        this.append(remove);
+        const leftWrap = new Container({ class: 'splat-item-left' });
+        (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (leftWrap.dom as HTMLElement).style.alignItems = 'center';
+        (leftWrap.dom as HTMLElement).style.gap = '4px';
+        (leftWrap.dom as HTMLElement).style.width = '40px';
+
+        const actionsWrap = new Container({ class: 'splat-item-actions' });
+        (actionsWrap.dom as HTMLElement).style.display = 'inline-flex';
+        (actionsWrap.dom as HTMLElement).style.gap = '6px';
+        (actionsWrap.dom as HTMLElement).style.flex = '0 0 auto';
+        (actionsWrap.dom as HTMLElement).style.width = '105px';
+        (actionsWrap.dom as HTMLElement).style.justifyContent = 'flex-end';
+
+        leftWrap.append(this.toggleCollapse);
+        leftWrap.append(this.toggleExpand);
+        this.headerWrap.append(leftWrap);
+        this.headerWrap.append(text);
+        actionsWrap.append(visible);
+        actionsWrap.append(invisible);
+        actionsWrap.append(selectable);
+        actionsWrap.append(unselectable);
+        actionsWrap.append(duplicate);
+        actionsWrap.append(remove);
+        this.headerWrap.append(actionsWrap);
+        this.append(this.headerWrap);
+
+        this.childrenWrap = new Container({ class: ['inspection-children'], hidden: true });
+        (this.childrenWrap.dom as HTMLElement).style.display = 'flex';
+        (this.childrenWrap.dom as HTMLElement).style.flexDirection = 'column';
+        (this.childrenWrap.dom as HTMLElement).style.gap = '4px';
+        (this.childrenWrap.dom as HTMLElement).style.marginLeft = '0';
+        (this.childrenWrap.dom as HTMLElement).style.paddingLeft = '0';
+        (this.childrenWrap.dom as HTMLElement).style.position = 'relative';
+        (this.childrenWrap.dom as HTMLElement).style.borderLeft = '';
+        this.append(this.childrenWrap);
 
         this.getName = () => {
             return text.value;
@@ -699,7 +816,7 @@ class SplatItem extends Container {
             event.stopPropagation();
 
             const onblur = () => {
-                this.remove(edit);
+                this.headerWrap.remove(edit);
                 this.emit('rename', edit.value);
                 edit.input.removeEventListener('blur', onblur);
                 text.hidden = false;
@@ -707,7 +824,11 @@ class SplatItem extends Container {
 
             text.hidden = true;
 
-            this.appendAfter(edit, text);
+            this.headerWrap.appendAfter(edit, text);
+            (edit.dom as HTMLElement).style.width = '100%';
+            (edit.dom as HTMLElement).style.boxSizing = 'border-box';
+            (edit.dom as HTMLElement).style.height = '20px';
+            (edit.dom as HTMLElement).style.margin = '0';
             edit.value = text.value;
             edit.input.addEventListener('blur', onblur);
             edit.focus();
@@ -723,7 +844,6 @@ class SplatItem extends Container {
 
         // 保存事件处理器引用以便后续移除
         const handleItemClick = (event: MouseEvent) => {
-            // 如果点击的是按钮，就不处理选择
             const target = event.target as HTMLElement;
             if (target.closest('.splat-item-visible') ||
                 target.closest('.splat-item-invisible') ||
@@ -732,12 +852,40 @@ class SplatItem extends Container {
                 target.closest('.splat-item-delete')) {
                 return;
             }
-            // 否则触发选择事件
-            this.emit('click', this);
+            const root = (event.currentTarget as HTMLElement).closest('.splat-item') as HTMLElement | null;
+            if (!root) return;
+            const ui = ((root as any).__ui as SplatItem | undefined);
+            if (!ui) return;
+            ui.emit('click', ui);
+            const kind = root.dataset.kind;
+            if (kind === 'line' || kind === 'face') {
+                ui.childrenWrap.hidden = !ui.childrenWrap.hidden;
+                (ui.toggleCollapse.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'inline-block';
+                (ui.toggleExpand.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'inline-block' : 'none';
+                if (ui.childrenWrap.hidden) ui.class.add('collapsed'); else ui.class.remove('collapsed');
+            }
         };
 
         // 绑定点击事件
-        this.dom.addEventListener('click', handleItemClick);
+        this.headerWrap.dom.addEventListener('click', handleItemClick);
+
+        ((this.dom as any) as any).__ui = this;
+        const toggleChildrenBound = (event: MouseEvent) => {
+            event.stopPropagation();
+            event.preventDefault();
+            const root = (event.currentTarget as HTMLElement).closest('.splat-item') as HTMLElement | null;
+            if (!root) return;
+            const ui = ((root as any).__ui as SplatItem | undefined);
+            if (!ui) return;
+            const kind = root.dataset.kind;
+            if (!(kind === 'line' || kind === 'face')) return;
+            ui.childrenWrap.hidden = !ui.childrenWrap.hidden;
+            (ui.toggleCollapse.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'inline-block';
+            (ui.toggleExpand.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'inline-block' : 'none';
+            if (ui.childrenWrap.hidden) ui.class.add('collapsed'); else ui.class.remove('collapsed');
+        };
+        this.toggleCollapse.dom.addEventListener('click', toggleChildrenBound);
+        this.toggleExpand.dom.addEventListener('click', toggleChildrenBound);
 
         this.destroy = () => {
             visible.dom.removeEventListener('click', toggleVisible);
@@ -746,7 +894,9 @@ class SplatItem extends Container {
             unselectable.dom.removeEventListener('click', toggleSelectable);
             duplicate.dom.removeEventListener('click', handleDuplicate);
             remove.dom.removeEventListener('click', handleRemove);
-            this.dom.removeEventListener('click', handleItemClick);
+            this.headerWrap.dom.removeEventListener('click', handleItemClick);
+            this.toggleCollapse.dom.removeEventListener('click', toggleChildrenBound);
+            this.toggleExpand.dom.removeEventListener('click', toggleChildrenBound);
         };
     }
 
@@ -804,6 +954,8 @@ class SplatList extends Container {
 
         super(args);
 
+        events.function('inspectionObjects.currentGroupId', () => this.currentGroupId);
+
         const items = new Map<Element, SplatItem>();
 
         // 创建分类容器
@@ -850,13 +1002,17 @@ class SplatList extends Container {
                 labelEl?.dom.addEventListener('dblclick', (event: MouseEvent) => {
                     event.stopPropagation();
                     const onblur = () => {
-                        (groupContainer as any).remove(editGroup);
+                        ((groupContainer as any).pointLabel.parent as Container).remove(editGroup);
                         labelEl.text = editGroup.value;
                         editGroup.input.removeEventListener('blur', onblur);
                         labelEl.hidden = false;
                     };
                     labelEl.hidden = true;
-                    (groupContainer as any).appendAfter(editGroup, labelEl);
+                    ((groupContainer as any).pointLabel.parent as Container).appendAfter(editGroup, labelEl);
+                    (editGroup.dom as HTMLElement).style.width = '100%';
+                    (editGroup.dom as HTMLElement).style.boxSizing = 'border-box';
+                    (editGroup.dom as HTMLElement).style.height = '20px';
+                    (editGroup.dom as HTMLElement).style.margin = '0';
                     editGroup.value = labelEl.text;
                     editGroup.input.addEventListener('blur', onblur);
                     (editGroup as any).focus?.();
@@ -871,7 +1027,7 @@ class SplatList extends Container {
             return group;
         };
 
-        const addInspectionObject = (payload: { id: string; kind: 'point'|'line'|'face'; groupId?: string }) => {
+        const addInspectionObject = (payload: { id: string; kind: 'point'|'line'|'face'; groupId?: string; parentId?: string }) => {
             const kind = payload.kind;
             const group = ensureGroup(payload.groupId);
             const gid = this.currentGroupId as string;
@@ -883,12 +1039,70 @@ class SplatList extends Container {
             const item = new SplatItem(name, edit2);
             item.class.add('inspection-model');
             item.class.add('no-duplicate');
-            (group as any).appendToContent(item);
-            (item.dom as HTMLElement).dataset.inspectionId = payload.id;
-            this.inspectionObjectItems.set(payload.id, item);
+            if (payload.parentId) {
+                const parentItem = this.inspectionObjectItems.get(payload.parentId);
+                const childName = `转点-${(payload.id.split('#')[1]) || ''}`;
+                item.name = childName || item.name;
+                item.class.add('child-item');
+                (item.dom as HTMLElement).dataset.inspectionId = payload.id;
+                (item.dom as HTMLElement).dataset.inspectionParentId = payload.parentId;
+                (item.dom as HTMLElement).style.margin = '0';
+                (item.dom as HTMLElement).style.padding = '0';
+                (item.dom as HTMLElement).style.border = 'none';
+                (item.headerWrap.dom as HTMLElement).style.margin = '0';
+                (item.headerWrap.dom as HTMLElement).style.padding = '0';
+                (item.headerWrap.dom as HTMLElement).style.border = 'none';
+
+                // Fix alignment: Child items should reserve same toggle space as parents (one toggle width)
+                (item.toggleCollapse.dom as HTMLElement).style.visibility = 'hidden';
+                (item.toggleExpand.dom as HTMLElement).style.visibility = 'hidden';
+                (item.toggleCollapse.dom as HTMLElement).style.display = 'none';
+                (item.toggleExpand.dom as HTMLElement).style.display = 'inline-block';
+
+                // 顶点子级图标
+                try {
+                    const vIcon = createSvg(vertexSvg) as unknown as HTMLElement;
+                    (vIcon as HTMLElement).classList.add('splat-type-icon');
+                    (item.headerWrap.dom.querySelector('.splat-item-left') as HTMLElement)?.appendChild(vIcon);
+                } catch {}
+                if (parentItem) {
+                    parentItem.childrenWrap.append(item);
+                } else {
+                    (group as any).appendToContent(item);
+                }
+            } else {
+                (group as any).appendToContent(item);
+                (item.dom as HTMLElement).dataset.inspectionId = payload.id;
+                (item.dom as HTMLElement).dataset.kind = kind;
+                if (kind === 'line' || kind === 'face') {
+                    (item.toggleCollapse.dom as HTMLElement).style.visibility = 'visible';
+                    (item.toggleExpand.dom as HTMLElement).style.visibility = 'visible';
+                    (item.toggleCollapse.dom as HTMLElement).style.display = 'none';
+                    (item.toggleExpand.dom as HTMLElement).style.display = 'inline-block';
+                    (item.headerWrap.dom as HTMLElement).style.borderLeft = '';
+                    (item.headerWrap.dom as HTMLElement).style.paddingLeft = '';
+                } else {
+                    (item.toggleCollapse.dom as HTMLElement).style.visibility = 'hidden';
+                    (item.toggleExpand.dom as HTMLElement).style.visibility = 'hidden';
+                    (item.toggleCollapse.dom as HTMLElement).style.display = 'none';
+                    (item.toggleExpand.dom as HTMLElement).style.display = 'inline-block';
+                    (item.headerWrap.dom as HTMLElement).style.borderLeft = '';
+                    (item.headerWrap.dom as HTMLElement).style.paddingLeft = '';
+                }
+                // 添加类型图标（点/线/面；子级顶点在上方分支处理）
+                let iconEl: HTMLElement | null = null;
+                try {
+                    iconEl = createSvg(kind === 'face' ? faceSvg : (kind === 'line' ? polylineSvg : pointSvg)) as unknown as HTMLElement;
+                } catch {}
+                if (iconEl) {
+                    (iconEl as HTMLElement).classList.add('splat-type-icon');
+                    (item.headerWrap.dom.querySelector('.splat-item-left') as HTMLElement)?.appendChild(iconEl);
+                }
+            }
             this.inspectionObjectItems.set(payload.id, item);
             this.inspectionObjectItemGroups.set(payload.id, gid);
-            item.on('click', () => {
+            item.on('click', (e: Event) => {
+                if (e && e.stopPropagation) e.stopPropagation();
                 this.currentGroupId = gid;
                 // 全局清除所有子项的选中高亮，然后仅选中当前项
                 events.fire('inspectionObjects.clearSelection');
@@ -897,7 +1111,13 @@ class SplatList extends Container {
                 events.fire('inspectionObjects.edit', payload.id);
             });
             item.on('removeClicked', () => {
-                (group as any).removeFromContent(item);
+                const parentId = (item.dom as HTMLElement).dataset.inspectionParentId;
+                if (parentId) {
+                    // 子级从父项中移除
+                    this.inspectionObjectItems.get(parentId)?.remove(item);
+                } else {
+                    (group as any).removeFromContent(item);
+                }
                 events.fire('inspectionObjects.removeItem', payload.id);
                 this.inspectionObjectItems.delete(payload.id);
             });
@@ -922,16 +1142,50 @@ class SplatList extends Container {
         events.on('inspectionObjects.addItem', (payload: any) => {
             addInspectionObject(payload);
         });
+        // 监听工具移除对象事件：若是线/面父级，级联移除其子级
+        events.on('inspectionObjects.removeItem', (id: string) => {
+            const parentItem = this.inspectionObjectItems.get(id);
+            if (parentItem && parentItem.childrenWrap) {
+                const nodes = [...(parentItem.childrenWrap as any).dom.children] as HTMLElement[];
+                nodes.forEach((child) => {
+                    const cid = child.dataset?.inspectionId;
+                    if (cid) this.inspectionObjectItems.delete(cid);
+                    parentItem.childrenWrap.remove((this.inspectionObjectItems.get(cid!) as any) || child as any);
+                });
+            }
+        });
         // 清除子项选中高亮
         events.on('inspectionObjects.clearSelection', () => {
             this.inspectionObjectItems.forEach((item) => {
                 item.selected = false;
             });
         });
+
+        // 监听工具发出的选中事件（如在场景中点击顶点）
+        events.on('inspectionObjects.selected', (id: string) => {
+            // 先清除当前选中
+            this.inspectionObjectItems.forEach((item) => {
+                item.selected = false;
+            });
+            // 选中目标项
+            const item = this.inspectionObjectItems.get(id);
+            if (item) {
+                item.selected = true;
+                // 确保所在组展开（可选）
+                const parentId = (item.dom as HTMLElement).dataset.inspectionParentId;
+                if (parentId) {
+                    const parentItem = this.inspectionObjectItems.get(parentId);
+                    if (parentItem) {
+                        // Expand parent logic if needed
+                        // For now parent is expanded by default or user action
+                    }
+                }
+            }
+        });
+
         // 初始化默认组
         ensureGroup();
         // 提供当前选中组查询
-        events.function('inspectionObjects.currentGroupId', () => this.currentGroupId);
         events.on('inspectionObjects.groupSelected', (gid: string) => {
             this.currentGroupId = gid;
         });

@@ -21,12 +21,16 @@ class InspectionObjectTool {
     private mode: Mode = 'point';
     private markerSize = 30;
     private step = 0.1;
-    private points: { dom: HTMLElement; world: Vec3 }[] = [];
     private svg: SVGSVGElement | null = null;
+    private currentDrawing: { id: string; kind: Mode; groupId: string } | null = null;
     private active = false;
-    private objects = new Map<string, { id: string; kind: Mode; groupId: string; dom?: HTMLElement }>();
+    private currentGroupId: string = 'XJDX-1';
+    private objects = new Map<string, { id: string; kind: Mode; groupId: string; dom?: HTMLElement; parentId?: string; world?: Vec3; worldRef?: Vec3 }>();
+    private lineFaceObjects = new Map<string, { id: string; kind: 'line'|'face'; groupId: string; points: { world: Vec3 }[]; svgEl: SVGPolylineElement | SVGPolygonElement; vertexCircles: SVGCircleElement[] }>();
     private gizmoEntity: Entity;
     private editingId: string | null = null;
+    private editingVertexIndex: number | null = null;
+    private isDragging = false;
     private suppressUntil = 0;
 
     constructor(events: Events, scene: Scene, canvasContainer: Container) {
@@ -47,16 +51,28 @@ class InspectionObjectTool {
         this.canvasContainerDom.appendChild(this.svg);
 
         const onDown = (e: PointerEvent) => {
+            if (e.target !== this.scene.canvas) return;
+
             if (!this.active) return;
+
+            const activeTool = this.events.invoke('tool.active');
+            if (activeTool === 'move') return;
+
             const isLeft = e.button === 0;
-            if (!isLeft) return;
+            const isRight = e.button === 2;
+            if (!isLeft && !isRight) return;
+            if (activeTool !== 'inspectionObjects') {
+                this.events.fire('inspectionObjects.active', true);
+                this.events.fire('tool.inspectionObjects');
+            }
             const wasEditing = !!this.editingId;
             const startX = e.clientX;
             const startY = e.clientY;
             let moved = false;
 
             const onMove = (ev: PointerEvent) => {
-                if ((ev.buttons & 1) === 0) return;
+                // 同时检测左/右键拖拽（1|2）以避免右键平移视口被误判为点击
+                if ((ev.buttons & 3) === 0) return;
                 const dx = Math.abs(ev.clientX - startX);
                 const dy = Math.abs(ev.clientY - startY);
                 if (dx > 4 || dy > 4) {
@@ -76,7 +92,12 @@ class InspectionObjectTool {
                     return;
                 }
                 if (!this.active) return;
-                if (ev.button !== 0) return;
+                if (ev.button === 2) {
+                    if (!moved) {
+                        this.finishCurrentSegment();
+                    }
+                    return;
+                }
 
                 const rect = this.canvasContainerDom.getBoundingClientRect();
                 const x = ev.clientX - rect.left;
@@ -84,90 +105,147 @@ class InspectionObjectTool {
                 const hit = this.scene.camera.intersect(x, y) as any;
                 if (!hit || !hit.position) return;
                 const world = new Vec3(hit.position.x, hit.position.y, hit.position.z);
-                const groupId = (this.events.invoke('inspectionObjects.currentGroupId') as string) || 'XJDX-1';
-                const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                const groupId = this.currentGroupId;
                 if (this.mode === 'point') {
                     const dom = this.placePoint(world);
-                    this.objects.set(id, { id, kind: 'point', groupId, dom });
+                    const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                    this.objects.set(id, { id, kind: 'point', groupId, dom, world: world.clone() });
                     this.events.fire('inspectionObjects.addItem', { id, kind: 'point', groupId });
+                    ev.preventDefault();
+                    ev.stopPropagation();
                 } else if (this.mode === 'line') {
-                    this.placePoint(world);
-                    this.updatePolyline();
-                    this.objects.set(id, { id, kind: 'line', groupId });
-                    this.events.fire('inspectionObjects.addItem', { id, kind: 'line', groupId });
+                    this.addPointToCurrent('line', groupId, world);
+                    ev.preventDefault();
+                    ev.stopPropagation();
                 } else {
-                    this.placePoint(world);
-                    this.updatePolygon();
-                    this.objects.set(id, { id, kind: 'face', groupId });
-                    this.events.fire('inspectionObjects.addItem', { id, kind: 'face', groupId });
+                    this.addPointToCurrent('face', groupId, world);
+                    ev.preventDefault();
+                    ev.stopPropagation();
                 }
             };
 
             window.addEventListener('pointermove', onMove, true);
             window.addEventListener('pointerup', onUp, true);
         };
-        this.canvasContainerDom.addEventListener('pointerdown', onDown);
+        this.scene.canvas.addEventListener('pointerdown', onDown, true);
+        // 不在 SVG 上直接接收事件，保持 pointer-events: none 以避免遮挡相机拖拽
         // 不拦截 pointerup，确保 Gizmo 能正确收到抬起事件完成一次移动
-        this.canvasContainerDom.addEventListener('contextmenu', e => e.preventDefault());
-        this.wireUiEvents();
-        this.events.function('inspectionObjects.isEditing', () => !!this.editingId);
-        this.events.on('camera.focalPointPicked', (details: any) => {
-            const ignore = this.events.invoke('tool.justTransformed');
-            if (ignore) return;
-            if (details && (details.splat || details.model)) return;
-            if (this.editingId) {
-                this.editingId = null;
-                this.events.fire('inspectionObjects.clearSelection');
-                this.events.fire('tool.deactivate');
-            }
+        this.canvasContainerDom.addEventListener('contextmenu', (e) => {
+            // 阻止右键菜单，但不结束绘制，结束逻辑由右键抬起且未拖拽时触发
+            e.preventDefault();
         });
+
+        // Prevent click-through to model when finishing a move
+        this.canvasContainerDom.addEventListener('click', (e) => {
+            if (this.events.invoke('tool.shouldIgnoreClick')) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
+        // SVG 层保持透明，无需额外拦截 contextmenu
+        this.wireUiEvents();
 
         // 采用原生移动工具：不再自行创建TranslateGizmo，改用Pivot事件驱动更新
         this.gizmoEntity = new Entity('inspectionGizmoPivot');
 
-        // listen edit requests from list
         this.events.on('inspectionObjects.edit', (id: string) => {
-            const obj = this.objects.get(id);
-            if (!obj || obj.kind !== 'point' || !obj.dom) return;
-            this.editingId = id;
-            const point = this.points.find(p => p.dom === obj.dom);
-            if (point) {
-                const pivot = this.events.invoke('pivot');
-                const t = new Transform();
-                t.position.copy(point.world);
-                t.rotation.setFromEulerAngles(0, 0, 0);
-                t.scale.set(1, 1, 1);
-                pivot.place(t);
-                this.events.fire('tool.move');
+            const sid = (id || '').trim();
+            if (!sid) return;
+
+            // 1. Prioritize exact match in objects map (Child Point or Standalone Point)
+            const obj = this.objects.get(sid);
+            if (obj) {
+                // If it has a parentId, it's a vertex of a Line/Face
+                if ((obj as any).parentId) {
+                    const parentId = (obj as any).parentId as string;
+                    // Extract index from the ID string (assuming format parentId#index)
+                    // We use the last part after # to be robust
+                    const parts = sid.split(/[#＃]/);
+                    const lastPart = parts[parts.length - 1];
+                    const idx = parseInt(lastPart, 10) - 1;
+
+                    if (!isNaN(idx) && idx >= 0) {
+                        this.startEditingVertex(parentId, idx);
+                        return;
+                    } else {
+                        console.warn(`[InspectionTool] Child object found but index parsing failed: "${sid}"`);
+                    }
+                } else if (obj.kind === 'point') {
+                    this.startEditingVertex(sid, -1);
+                    return;
+                }
+            }
+
+            // 2. Regex fallback for IDs that might not be in objects map yet (unlikely but safe)
+            const m = sid.match(/^(.+?)[#＃]\s*(\d+)\s*$/);
+            if (m) {
+                const parentId = m[1].trim();
+                const idx = Math.max(0, Number(m[2]) - 1);
+                this.startEditingVertex(parentId, idx);
+                return;
+            }
+
+            // 3. Parent Object Match (Line/Face)
+            // If the ID matches a Line/Face, we select its first vertex (index 0)
+            const lf = this.lineFaceObjects.get(sid);
+            if (lf && lf.points.length > 0) {
+                this.startEditingVertex(sid, 0);
+                return;
+            }
+
+            console.warn(`[InspectionTool] Edit request could not be resolved: "${sid}"`);
+        });
+
+        // Re-trigger editing if move tool is activated while an item is selected
+        this.events.on('tool.activated', (toolName: string) => {
+            if (toolName === 'move' && this.editingId) {
+                if (this.editingVertexIndex !== null) {
+                    this.startEditingVertex(this.editingId, this.editingVertexIndex);
+                } else {
+                    this.startEditingVertex(this.editingId, -1);
+                }
             }
         });
+
         // 底部移动工具激活时，若有当前编辑目标则附着 Gizmo；切换到非移动则拆除 Gizmo
         // 监听Pivot事件以更新巡检对象位置（使用原生移动工具的轴与拖拽逻辑）
         this.events.on('pivot.moved', (pivot: any) => {
             if (!this.editingId) return;
+
+            // Handle Line/Face Vertex
+            if (this.editingVertexIndex !== null && this.editingVertexIndex >= 0) {
+                const lf = this.lineFaceObjects.get(this.editingId);
+                if (lf && lf.points[this.editingVertexIndex]) {
+                    lf.points[this.editingVertexIndex].world.copy(pivot.transform.position);
+                    this.updateAllLineFaceSvgs();
+                }
+                return;
+            }
+
+            // Handle Point
             const obj = this.objects.get(this.editingId);
-            if (!obj || obj.kind !== 'point' || !obj.dom) return;
-            const point = this.points.find(p => p.dom === obj.dom);
-            if (!point) return;
-            point.world.copy(pivot.transform.position);
-            this.updateMarker(point);
-            this.updatePolyline();
-            this.updatePolygon();
+            if (!obj || obj.kind !== 'point') return;
+            const target = obj.worldRef || obj.world || (obj.dom ? this.findPointByDom(obj.dom)?.world : null);
+            if (!target) return;
+            target.copy(pivot.transform.position);
+            if (obj.dom && obj.world) {
+                this.updateMarker({ dom: obj.dom, world: obj.world });
+            }
+            this.updateAllLineFaceSvgs();
         });
         this.events.on('pivot.started', () => {
-            if (this.editingId) this.events.fire('tool.dragging', true);
-        });
-        this.events.on('pivot.ended', () => {
             if (this.editingId) {
-                this.events.fire('tool.dragging', false);
-                this.events.fire('tool.transformed');
+                this.isDragging = true;
+                this.events.fire('tool.dragging', true);
             }
         });
-
-        // 当全局选择发生变化（例如选择了巡检点位或其他模型）时，停止巡检对象的编辑响应
-        this.events.on('selection.changed', () => {
+        this.events.on('pivot.ended', () => {
+            // Always fire transformed if we were editing, to prevent click-through
             if (this.editingId) {
-                this.editingId = null;
+                this.isDragging = false;
+                this.events.fire('tool.dragging', false);
+                this.events.fire('tool.transformed');
             }
         });
 
@@ -177,6 +255,7 @@ class InspectionObjectTool {
             if (ev.key === 'Escape') {
                 if (this.editingId) {
                     this.editingId = null;
+                    this.editingVertexIndex = null;
                 }
                 this.events.fire('inspectionObjects.clearSelection');
                 this.events.fire('tool.deactivate');
@@ -190,38 +269,54 @@ class InspectionObjectTool {
 
         this.events.on('inspectionObjects.clearSelection', () => {
             if (this.editingId) {
+                this.setOverlayPointerEvents(true);
                 this.editingId = null;
-                this.events.fire('tool.deactivate');
+                this.editingVertexIndex = null;
             }
         });
 
         events.on('inspectionObjects.setMode', (m: Mode) => {
+            if (this.currentDrawing) {
+                this.finishCurrentSegment();
+            }
             this.mode = m;
+            this.active = true;
+            this.events.fire('inspectionObjects.active', true);
+            this.events.fire('tool.inspectionObjects');
         });
         events.on('inspectionObjects.active', (active: boolean) => {
             this.active = active;
             if (!active) {
                 if (this.editingId) {
                     this.editingId = null;
+                    this.editingVertexIndex = null;
                 }
                 this.events.fire('inspectionObjects.clearSelection');
                 this.events.fire('tool.deactivate');
+                if (this.svg) this.svg.style.pointerEvents = 'none';
             }
+        });
+        events.on('inspectionObjects.groupSelected', (gid: string) => {
+            if (gid) this.currentGroupId = gid;
         });
         events.on('inspectionObjects.setSize', (size: number) => {
             this.markerSize = Math.max(1, Math.min(256, size));
-            this.points.forEach((p) => {
-                p.dom.style.width = `${this.markerSize}px`;
-                p.dom.style.height = `${this.markerSize}px`;
+            const r = Math.max(2, Math.min(12, this.markerSize / 6));
+            this.lineFaceObjects.forEach((lf) => {
+                lf.vertexCircles.forEach(c => c.setAttribute('r', `${r}`));
             });
-            this.updatePolyline();
-            this.updatePolygon();
+            this.objects.forEach((o) => {
+                if (o.kind === 'point' && o.dom) {
+                    o.dom.style.width = `${this.markerSize}px`;
+                    o.dom.style.height = `${this.markerSize}px`;
+                }
+            });
+            this.updateAllLineFaceSvgs();
         });
 
         events.on('update', () => {
             this.updateAllMarkers();
-            this.updatePolyline();
-            this.updatePolygon();
+            this.updateAllLineFaceSvgs();
         });
 
         const onArrow = (dir: 'up' | 'down' | 'left' | 'right', e: KeyboardEvent) => {
@@ -272,6 +367,11 @@ class InspectionObjectTool {
                 case 'ArrowRight':
                     onArrow('right', e);
                     break;
+                case 'Enter':
+                    this.finishCurrentSegment();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    break;
             }
         };
         const keyup = (e: KeyboardEvent) => {
@@ -319,14 +419,24 @@ class InspectionObjectTool {
     private placePoint(world: Vec3) {
         const el = createImgEl(inspectionPointSvg);
         el.style.position = 'absolute';
-        el.style.pointerEvents = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'grab';
         el.style.transform = 'translate(-50%, -100%)';
         el.style.zIndex = '50';
         el.style.width = `${this.markerSize}px`;
         el.style.height = `${this.markerSize}px`;
+
+        el.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const p = this.findPointByDom(el);
+            if (p && p.id) {
+                this.startEditingVertex(p.id, -1);
+            }
+        });
+
         this.canvasContainerDom.appendChild(el);
         const item = { dom: el, world: world.clone() };
-        this.points.push(item);
         this.updateMarker(item);
         return el;
     }
@@ -336,6 +446,37 @@ class InspectionObjectTool {
             p.dom.style.display = 'none';
             return;
         }
+
+        // 确保点对象可被点击选择以进行移动
+        if (p.dom.dataset && p.dom.dataset.xjdxPointerReady !== '1') {
+            p.dom.style.pointerEvents = 'auto';
+            p.dom.style.cursor = 'grab';
+            p.dom.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const info = this.findPointByDom(p.dom);
+                if (info && (info as any).id) {
+                    this.startEditingVertex((info as any).id, -1);
+                }
+            });
+            p.dom.dataset.xjdxPointerReady = '1';
+        }
+
+        // Logic for pointer events based on editing/dragging state
+        const info = this.findPointByDom(p.dom);
+        const isEditing = (info && info.id === this.editingId);
+
+        if (this.isDragging) {
+            p.dom.style.pointerEvents = 'none';
+            p.dom.style.cursor = 'default';
+        } else if (isEditing) {
+            p.dom.style.pointerEvents = 'none';
+            p.dom.style.cursor = 'default';
+        } else {
+            p.dom.style.pointerEvents = 'auto';
+            p.dom.style.cursor = 'grab';
+        }
+
         const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
         const isOrtho = this.scene.camera.ortho;
         if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) {
@@ -347,50 +488,174 @@ class InspectionObjectTool {
         }
     }
 
-    private updatePolyline() {
+    private updateAllLineFaceSvgs() {
         if (!this.svg) return;
-        this.svg.innerHTML = '';
-        if (this.mode !== 'line' || this.points.length < 2) return;
-        const ns = this.svg.namespaceURI;
-        const pl = document.createElementNS(ns, 'polyline');
-        pl.setAttribute('fill', 'none');
-        pl.setAttribute('stroke', '#ffcc00');
-        pl.setAttribute('stroke-width', '2');
-        const pts = this.points.map((p) => {
-            const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
-            return `${sp.x},${sp.y}`;
-        }).join(' ');
-        pl.setAttribute('points', pts);
-        this.svg.appendChild(pl);
+        this.lineFaceObjects.forEach((obj) => {
+            const pts = obj.points.map((p) => {
+                const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
+                return `${sp.x},${sp.y}`;
+            }).join(' ');
+            obj.svgEl.setAttribute('points', pts);
+            const ns = this.svg!.namespaceURI;
+            while (obj.vertexCircles.length < obj.points.length) {
+                const c = document.createElementNS(ns, 'circle') as SVGCircleElement;
+                c.setAttribute('r', '4');
+                c.setAttribute('fill', '#ffcc00');
+                c.setAttribute('stroke', '#333');
+                c.setAttribute('stroke-width', '1');
+                c.style.pointerEvents = 'auto';
+                c.style.cursor = 'grab';
+                c.onpointerdown = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!this.svg) return;
+                    // 从dataset读取ID和Index
+                    const id = c.dataset.id;
+                    const idx = parseInt(c.dataset.index || '-1', 10);
+                    if (id && idx >= 0) {
+                        this.startEditingVertex(id, idx);
+                    }
+                };
+                this.svg!.appendChild(c);
+                obj.vertexCircles.push(c);
+            }
+            for (let i = 0; i < obj.vertexCircles.length; i++) {
+                const circ = obj.vertexCircles[i];
+                // 更新dataset
+                circ.dataset.id = obj.id;
+                circ.dataset.index = i.toString();
+
+                const isEditing = (obj.id === this.editingId && i === this.editingVertexIndex);
+                if (this.isDragging) {
+                    circ.style.pointerEvents = 'none';
+                    circ.style.cursor = 'default';
+                } else if (isEditing) {
+                    circ.style.pointerEvents = 'none';
+                    circ.style.cursor = 'default';
+                } else {
+                    circ.style.pointerEvents = 'auto';
+                    circ.style.cursor = 'grab';
+                }
+
+                if (i < obj.points.length) {
+                    const sp = this.scene.camera.entity.camera.worldToScreen(obj.points[i].world, new Vec3());
+                    circ.setAttribute('cx', `${sp.x}`);
+                    circ.setAttribute('cy', `${sp.y}`);
+                    circ.setAttribute('visibility', 'visible');
+                } else {
+                    circ.setAttribute('visibility', 'hidden');
+                }
+            }
+        });
     }
 
-    private updatePolygon() {
+    private setOverlayPointerEvents(enabled: boolean) {
+        // 点对象图标
+        this.objects.forEach((o) => {
+            if (o.kind === 'point' && o.dom) {
+                o.dom.style.pointerEvents = enabled ? 'auto' : 'none';
+                o.dom.style.cursor = enabled ? 'grab' : 'default';
+            }
+        });
+        // 线/面顶点圆点
+        this.lineFaceObjects.forEach((lf) => {
+            lf.vertexCircles.forEach((c) => {
+                c.style.pointerEvents = enabled ? 'auto' : 'none';
+                c.style.cursor = enabled ? 'grab' : 'default';
+            });
+        });
+    }
+
+    private setContainerPointerEvents(enabled: boolean) {
+        if (this.canvasContainerDom) {
+            (this.canvasContainerDom as HTMLElement).style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+    }
+
+    private setSelectedOverlayInteractive(enabled: boolean) {
+        if (!this.editingId) return;
+        if (this.editingVertexIndex !== null && this.editingVertexIndex >= 0) {
+            const lf = this.lineFaceObjects.get(this.editingId);
+            const c = lf && lf.vertexCircles[this.editingVertexIndex];
+            if (c) {
+                c.style.pointerEvents = enabled ? 'auto' : 'none';
+                c.style.cursor = enabled ? 'grab' : 'default';
+            }
+        } else {
+            const obj = this.objects.get(this.editingId);
+            if (obj && obj.dom) {
+                obj.dom.style.pointerEvents = enabled ? 'auto' : 'none';
+                obj.dom.style.cursor = enabled ? 'grab' : 'default';
+            }
+        }
+    }
+
+    private addPointToCurrent(kind: 'line'|'face', groupId: string, world: Vec3) {
         if (!this.svg) return;
-        if (this.mode !== 'face' || this.points.length < 3) return;
-        this.svg.innerHTML = '';
-        const ns = this.svg.namespaceURI;
-        const pg = document.createElementNS(ns, 'polygon');
-        pg.setAttribute('fill', 'rgba(255,204,0,0.2)');
-        pg.setAttribute('stroke', '#ffcc00');
-        pg.setAttribute('stroke-width', '2');
-        const pts = this.points.map((p) => {
-            const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
-            return `${sp.x},${sp.y}`;
-        }).join(' ');
-        pg.setAttribute('points', pts);
-        this.svg.appendChild(pg);
+        if (!this.currentDrawing || this.currentDrawing.kind !== kind || this.currentDrawing.groupId !== groupId) {
+            const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+            this.currentDrawing = { id, kind, groupId };
+            const ns = this.svg.namespaceURI;
+            const svgEl = document.createElementNS(ns, kind === 'line' ? 'polyline' : 'polygon') as any;
+            svgEl.setAttribute('fill', kind === 'line' ? 'none' : 'rgba(255,204,0,0.2)');
+            svgEl.setAttribute('stroke', '#ffcc00');
+            svgEl.setAttribute('stroke-width', '2');
+            this.svg.appendChild(svgEl);
+            this.lineFaceObjects.set(id, { id, kind, groupId, points: [], svgEl, vertexCircles: [] });
+            this.objects.set(id, { id, kind, groupId });
+            this.events.fire('inspectionObjects.addItem', { id, kind, groupId });
+        }
+        const obj = this.lineFaceObjects.get(this.currentDrawing.id)!;
+        obj.points.push({ world: world.clone() });
+        this.updateAllLineFaceSvgs();
     }
 
     private clearTemp() {
-        this.points.forEach(p => p.dom.remove());
-        this.points = [];
-        if (this.svg) this.svg.innerHTML = '';
+    }
+
+    private startEditingVertex(id: string, index: number) {
+        this.editingId = id;
+        this.editingVertexIndex = index;
+
+        // Notify list to highlight
+        const childId = index >= 0 ? `${id}#${index + 1}` : id;
+        this.events.fire('inspectionObjects.selected', childId);
+
+        const pivot = this.events.invoke('pivot');
+        if (!pivot) return;
+
+        let worldTarget: any = null;
+
+        if (index >= 0) {
+            const lf = this.lineFaceObjects.get(id);
+            if (lf && lf.points[index]) {
+                worldTarget = lf.points[index].world;
+            } else {
+                console.warn(`[InspectionTool] Vertex not found: id="${id}" index=${index}`);
+            }
+        } else {
+            const obj = this.objects.get(id);
+            if (obj && obj.kind === 'point') {
+                worldTarget = obj.worldRef || obj.world;
+            }
+        }
+
+        if (worldTarget) {
+            const t = new Transform();
+            t.position.copy(worldTarget);
+            t.rotation.setFromEulerAngles(0, 0, 0);
+            t.scale.set(1, 1, 1);
+            pivot.place(t);
+            this.setSelectedOverlayInteractive(false);
+        }
     }
 
     private updateAllMarkers() {
-        for (let i = 0; i < this.points.length; i++) {
-            this.updateMarker(this.points[i]);
-        }
+        this.objects.forEach((o) => {
+            if (o.kind === 'point' && o.dom && o.world) {
+                this.updateMarker({ dom: o.dom, world: o.world });
+            }
+        });
     }
 
     // UI → 场景联动
@@ -401,7 +666,11 @@ class InspectionObjectTool {
             obj.dom.dataset.hidden = visible ? '0' : '1';
             obj.dom.style.display = visible ? 'block' : 'none';
         } else if (obj.kind === 'line' || obj.kind === 'face') {
-            if (this.svg) this.svg.style.display = visible ? 'block' : 'none';
+            const lf = this.lineFaceObjects.get(id);
+            if (lf) {
+                lf.svgEl.style.display = visible ? 'block' : 'none';
+                lf.vertexCircles.forEach(c => c.style.display = visible ? 'block' : 'none');
+            }
         }
     }
 
@@ -410,13 +679,12 @@ class InspectionObjectTool {
         if (!obj) return;
         if (obj.kind === 'point' && obj.dom) {
             obj.dom.remove();
-            // also remove from points array
-            this.points = this.points.filter(p => p.dom !== obj.dom);
         } else if (obj.kind === 'line' || obj.kind === 'face') {
-            this.points = [];
-            if (this.svg) {
-                this.svg.innerHTML = '';
-                this.svg.style.display = 'none';
+            const lf = this.lineFaceObjects.get(id);
+            if (lf) {
+                lf.vertexCircles.forEach(c => c.remove());
+                lf.svgEl.remove();
+                this.lineFaceObjects.delete(id);
             }
         }
         this.objects.delete(id);
@@ -431,6 +699,32 @@ class InspectionObjectTool {
 
     // events wiring
     private wireUiEvents() {
+        this.events.function('inspectionObjects.isEditing', () => !!this.editingId);
+
+        this.events.on('camera.focalPointPicked', (details: any) => {
+            const ignore = this.events.invoke('tool.justTransformed');
+            if (ignore) return;
+            if (details && (details.splat || details.model)) return;
+            if (this.editingId) {
+                this.setOverlayPointerEvents(true);
+                this.editingId = null;
+                this.editingVertexIndex = null;
+                this.events.fire('inspectionObjects.clearSelection');
+            }
+        });
+
+        this.events.on('selection.changed', (selection: any) => {
+            const activeTool = this.events.invoke('tool.active');
+            if (activeTool === 'move') {
+                return;
+            }
+            if (selection) {
+                this.editingId = null;
+                this.editingVertexIndex = null;
+                this.events.fire('inspectionObjects.clearSelection');
+            }
+        });
+
         this.events.on('inspectionObjects.setVisible', (id: string, visible: boolean) => this.setVisible(id, visible));
         this.events.on('inspectionObjects.removeItem', (id: string) => this.removeItem(id));
         this.events.on('inspectionObjects.setSelectable', (id: string, selectable: boolean) => this.setSelectable(id, selectable));
@@ -439,6 +733,39 @@ class InspectionObjectTool {
                 if (obj.groupId === groupId) this.setVisible(obj.id, visible);
             });
         });
+    }
+
+    private finishCurrentSegment() {
+        if (!this.currentDrawing) return;
+        const lf = this.lineFaceObjects.get(this.currentDrawing.id);
+        if (!lf) {
+            this.currentDrawing = null; return;
+        }
+        const minCount = lf.kind === 'line' ? 2 : 3;
+        if (lf.points.length < minCount) {
+            lf.vertexCircles.forEach(c => c.remove());
+            lf.svgEl.remove();
+            this.lineFaceObjects.delete(lf.id);
+            this.objects.delete(lf.id);
+            this.currentDrawing = null;
+            return;
+        }
+        for (let i = 0; i < lf.points.length; i++) {
+            const childId = `${lf.id}#${i + 1}`;
+            this.objects.set(childId, { id: childId, kind: 'point', groupId: lf.groupId, parentId: lf.id, worldRef: lf.points[i].world });
+            this.events.fire('inspectionObjects.addItem', { id: childId, kind: 'point', groupId: lf.groupId, parentId: lf.id });
+        }
+        this.updateAllLineFaceSvgs();
+        this.currentDrawing = null;
+    }
+
+    private findPointByDom(dom: HTMLElement) {
+        for (const o of this.objects.values()) {
+            if (o.kind === 'point' && o.dom === dom && o.world) {
+                return { dom: o.dom, world: o.world, id: o.id };
+            }
+        }
+        return null;
     }
 }
 

@@ -16,10 +16,11 @@ import { Shortcuts } from './shortcuts';
 import { registerTimelineEvents } from './timeline';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
+import { CoordinateLookupTool } from './tools/coordinate-lookup';
 import { FloodSelection } from './tools/flood-selection';
+import { InspectionObjectTool } from './tools/inspection-object-tool';
 import { LassoSelection } from './tools/lasso-selection';
 import { MeasureTool } from './tools/measure-tool';
-import { CoordinateLookupTool } from './tools/coordinate-lookup';
 import { MoveTool } from './tools/move-tool';
 import { PolygonSelection } from './tools/polygon-selection';
 import { RectSelection } from './tools/rect-selection';
@@ -30,10 +31,9 @@ import { ToolManager } from './tools/tool-manager';
 import { registerTransformHandlerEvents } from './transform-handler';
 import { EditorUI } from './ui/editor';
 import { ExcelExporter } from './ui/excel-exporter';
-import { SnapshotView } from './ui/snapshot-view';
-import { InspectionViewport } from './ui/inspection-viewport';
 import { InspectionObjectToolbar } from './ui/inspection-object-toolbar';
-import { InspectionObjectTool } from './tools/inspection-object-tool';
+import { InspectionViewport } from './ui/inspection-viewport';
+import { SnapshotView } from './ui/snapshot-view';
 
 
 declare global {
@@ -114,6 +114,8 @@ const initShortcuts = (events: Events) => {
 const main = async () => {
     // 根事件对象
     const events = new Events();
+    // 提前注册时间轴事件，避免 UI 构造期间调用时报未找到函数
+    registerTimelineEvents(events);
 
     // 坐标原点 ENU / EPSG 初始设置与获取（默认 ENU 为 0，EPSG 为空）
     let originENU = { x: 0, y: 0, z: 0 };
@@ -306,7 +308,6 @@ const main = async () => {
 
     registerEditorEvents(events, editHistory, scene);
     registerSelectionEvents(events, scene);
-    registerTimelineEvents(events);
     registerCameraPosesEvents(events);
     registerTransformHandlerEvents(events);
     registerPlySequenceEvents(events);
@@ -461,6 +462,11 @@ const main = async () => {
     toolManager.register('inspectionObjects', inspectionObjectTool);
 
     inspectionObjectToolbar.on('setMode', (mode: 'point'|'line'|'face') => {
+        const activeTool = events.invoke('tool.active');
+        if (activeTool !== 'inspectionObjects') {
+            events.fire('tool.inspectionObjects');
+        }
+        events.fire('inspectionObjects.active', true);
         events.fire('inspectionObjects.setMode', mode);
     });
     inspectionObjectToolbar.on('toggleActive', (active: boolean) => {

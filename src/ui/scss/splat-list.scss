@@ -93,6 +93,45 @@
             }
         }
 
+        .splat-type-icon {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            svg {
+                width: 16px;
+                height: 16px;
+            }
+        }
+
+        .splat-item-toggle-icon {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 auto;
+            margin-right: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            svg {
+                width: 16px;
+                height: 16px;
+            }
+        }
+
+        // 二级（子级）减少左内边距以适应树线占位
+        &.inspection-model.child-item .splat-item-header {
+            padding-left: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        &.inspection-model.parent-item .splat-item-header {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
         .splat-item-visible {
             flex-grow: 0;
             flex-shrink: 0;
@@ -113,6 +152,18 @@
             &:hover {
                 color: $text-primary;
             }
+        }
+
+        .splat-item-left {
+            width: 56px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .splat-item-actions {
+            justify-content: flex-end;
+            width: 120px;
         }
 
         .splat-item-duplicate {
@@ -170,7 +221,7 @@
         }
     }
 
-    
+
 
     // 巡检点位容器样式
 .inspection-point-container {
@@ -195,7 +246,7 @@
         }
 
         &.selected .inspection-point-header {
-            background-color: rgba(76, 175, 80, 0.20);
+            background-color: rgba(76, 175, 80, 0.12);
             border-left-color: #2E7D32;
         }
 
@@ -292,42 +343,13 @@
             display: none;
         }
 
-        // 巡检模型（子级）的样式
+        // 巡检模型（父子通用外观）
         .splat-item.inspection-model {
-            margin: 2px 0 2px 20px;
+            margin: 2px 0;
             padding: 4px 8px;
             background-color: rgba(76, 175, 80, 0.03);
             border-radius: 3px;
             position: relative;
-
-            // 水平连接线 - 所有子项都有
-            &::after {
-                content: '';
-                position: absolute;
-                left: -16px;
-                top: 50%;
-                width: 12px;
-                height: 2px;
-                background-color: #81C784;
-                transform: translateY(-1px);
-            }
-
-            // 垂直连接线 - 默认贯穿到底部
-            &::before {
-                content: '';
-                position: absolute;
-                left: -16px;
-                top: -2px;
-                bottom: -2px;
-                width: 2px;
-                background-color: #81C784;
-            }
-
-            // 最后一个子项和只有一个子项 - L型（竖线只到中心）
-            &:last-child::before,
-            &:first-child:last-child::before {
-                bottom: 50%;
-            }
 
             .splat-item-text {
                 font-size: 12px;
@@ -336,18 +358,34 @@
             }
 
             &:hover {
-                background-color: rgba(76, 175, 80, 0.06);
+                background-color: rgba(76, 175, 80, 0.05);
             }
 
             &.selected {
-                background-color: rgba(76, 175, 80, 0.15);
+                background-color: rgba(76, 175, 80, 0.08);
                 border-left: 2px solid #4CAF50;
             }
         }
+
+        // 取消树线，保持所有层级整体列对齐
     }
 }
 
 // 巡检对象分类标题颜色与巡检点位一致
 .inspection-objects-category .category-header .category-label {
     color: #2E7D32;
+}
+
+// 强制统一巡检点位头部与子项的列网格布局与右侧操作区宽度
+.inspection-point-container .inspection-point-header {
+    display: grid;
+    grid-template-columns: 56px 1fr 120px;
+    column-gap: 4px;
+}
+.inspection-point-container .inspection-point-collapse-icon {
+    margin-right: 10px;
+}
+.inspection-point-container .inspection-point-actions {
+    justify-content: flex-end;
+    width: 120px;
 }
