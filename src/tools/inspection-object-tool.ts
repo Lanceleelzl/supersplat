@@ -168,9 +168,9 @@ class InspectionObjectTool {
                     if (!isNaN(idx) && idx >= 0) {
                         this.startEditingVertex(parentId, idx);
                         return;
-                    } else {
-                        console.warn(`[InspectionTool] Child object found but index parsing failed: "${sid}"`);
                     }
+                    console.warn(`[InspectionTool] Child object found but index parsing failed: "${sid}"`);
+
                 } else if (obj.kind === 'point') {
                     this.startEditingVertex(sid, -1);
                     return;
@@ -497,6 +497,11 @@ class InspectionObjectTool {
             }).join(' ');
             obj.svgEl.setAttribute('points', pts);
             const ns = this.svg!.namespaceURI;
+            // Remove extra circles
+            while (obj.vertexCircles.length > obj.points.length) {
+                const c = obj.vertexCircles.pop();
+                if (c) c.remove();
+            }
             while (obj.vertexCircles.length < obj.points.length) {
                 const c = document.createElementNS(ns, 'circle') as SVGCircleElement;
                 c.setAttribute('r', '4');
@@ -537,14 +542,10 @@ class InspectionObjectTool {
                     circ.style.cursor = 'grab';
                 }
 
-                if (i < obj.points.length) {
-                    const sp = this.scene.camera.entity.camera.worldToScreen(obj.points[i].world, new Vec3());
-                    circ.setAttribute('cx', `${sp.x}`);
-                    circ.setAttribute('cy', `${sp.y}`);
-                    circ.setAttribute('visibility', 'visible');
-                } else {
-                    circ.setAttribute('visibility', 'hidden');
-                }
+                const sp = this.scene.camera.entity.camera.worldToScreen(obj.points[i].world, new Vec3());
+                circ.setAttribute('cx', `${sp.x}`);
+                circ.setAttribute('cy', `${sp.y}`);
+                circ.setAttribute('visibility', 'visible');
             }
         });
     }
@@ -590,8 +591,70 @@ class InspectionObjectTool {
         }
     }
 
+    private reindexChildren(lf: any, oldLength: number) {
+        const parentId = lf.id;
+        // 1. Remove old entries
+        for (let k = 1; k <= oldLength; k++) {
+            this.objects.delete(`${parentId}#${k}`);
+        }
+
+        // 2. Create new entries
+        const newChildrenPayloads = [];
+        for (let i = 0; i < lf.points.length; i++) {
+            const newId = `${parentId}#${i + 1}`;
+            this.objects.set(newId, {
+                id: newId,
+                kind: 'point',
+                groupId: lf.groupId,
+                parentId: parentId,
+                worldRef: lf.points[i].world
+            });
+            newChildrenPayloads.push({
+                id: newId,
+                kind: 'point',
+                groupId: lf.groupId,
+                parentId: parentId
+            });
+        }
+
+        // 3. Notify UI
+        this.events.fire('inspectionObjects.replaceChildren', parentId, newChildrenPayloads);
+    }
+
     private addPointToCurrent(kind: 'line'|'face', groupId: string, world: Vec3) {
         if (!this.svg) return;
+
+        // Check if we are editing an existing line/face and should insert a point
+        if (!this.currentDrawing && this.editingId) {
+            const lf = this.lineFaceObjects.get(this.editingId);
+            // Ensure object exists and matches the current tool mode
+            if (lf && lf.kind === kind) {
+                const oldLength = lf.points.length;
+                let insertIndex = oldLength;
+
+                // If a vertex is selected, insert after it
+                if (this.editingVertexIndex !== null && this.editingVertexIndex >= 0) {
+                    insertIndex = this.editingVertexIndex + 1;
+                }
+
+                // Insert the point
+                lf.points.splice(insertIndex, 0, { world: world.clone() });
+
+                // Update visualization
+                this.updateAllLineFaceSvgs();
+
+                // Re-index children
+                this.reindexChildren(lf, oldLength);
+
+                // Update selection to the new point
+                this.editingVertexIndex = insertIndex;
+                const newId = `${lf.id}#${insertIndex + 1}`;
+                this.events.fire('inspectionObjects.selected', newId);
+
+                return;
+            }
+        }
+
         if (!this.currentDrawing || this.currentDrawing.kind !== kind || this.currentDrawing.groupId !== groupId) {
             const id = `xjdx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
             this.currentDrawing = { id, kind, groupId };
@@ -669,25 +732,82 @@ class InspectionObjectTool {
             const lf = this.lineFaceObjects.get(id);
             if (lf) {
                 lf.svgEl.style.display = visible ? 'block' : 'none';
-                lf.vertexCircles.forEach(c => c.style.display = visible ? 'block' : 'none');
+                lf.vertexCircles.forEach((c) => {
+                    c.style.display = visible ? 'block' : 'none';
+                });
             }
         }
     }
 
     private removeItem(id: string) {
-        const obj = this.objects.get(id);
-        if (!obj) return;
-        if (obj.kind === 'point' && obj.dom) {
-            obj.dom.remove();
-        } else if (obj.kind === 'line' || obj.kind === 'face') {
-            const lf = this.lineFaceObjects.get(id);
-            if (lf) {
-                lf.vertexCircles.forEach(c => c.remove());
-                lf.svgEl.remove();
-                this.lineFaceObjects.delete(id);
+        // 优先处理子顶点删除（格式：parentId#index 或使用全角＃）
+        const hashParts = id.split(/[#＃]/);
+        if (hashParts.length > 1) {
+            const parentId = hashParts[0];
+            const idxStr = hashParts[hashParts.length - 1];
+            const idx = parseInt(idxStr, 10) - 1;
+
+            const lf = this.lineFaceObjects.get(parentId);
+            if (lf && idx >= 0 && idx < lf.points.length) {
+                lf.points.splice(idx, 1);
+
+                const circle = lf.vertexCircles[idx];
+                if (circle) {
+                    circle.remove();
+                    lf.vertexCircles.splice(idx, 1);
+                }
+
+                this.updateAllLineFaceSvgs();
+
+                const oldLen = lf.points.length + 1;
+                for (let k = 1; k <= oldLen; k++) {
+                    this.objects.delete(`${parentId}#${k}`);
+                }
+
+                const newChildrenPayloads = [];
+                for (let i = 0; i < lf.points.length; i++) {
+                    const newId = `${parentId}#${i + 1}`;
+                    this.objects.set(newId, {
+                        id: newId,
+                        kind: 'point',
+                        groupId: lf.groupId,
+                        parentId: parentId,
+                        worldRef: lf.points[i].world
+                    });
+                    newChildrenPayloads.push({
+                        id: newId,
+                        kind: 'point',
+                        groupId: lf.groupId,
+                        parentId: parentId
+                    });
+                }
+
+                this.events.fire('inspectionObjects.replaceChildren', parentId, newChildrenPayloads);
+                return;
             }
         }
-        this.objects.delete(id);
+
+        // 删除顶层对象（点/线/面）
+        const obj = this.objects.get(id);
+        if (obj) {
+            if (obj.kind === 'point' && obj.dom) {
+                obj.dom.remove();
+            } else if (obj.kind === 'line' || obj.kind === 'face') {
+                const lf = this.lineFaceObjects.get(id);
+                if (lf) {
+                    lf.vertexCircles.forEach(c => c.remove());
+                    lf.svgEl.remove();
+                    this.lineFaceObjects.delete(id);
+                    // 同步清理其所有子顶点对象映射
+                    const childCount = lf.points.length;
+                    for (let k = 1; k <= childCount; k++) {
+                        this.objects.delete(`${id}#${k}`);
+                    }
+                }
+            }
+            this.objects.delete(id);
+
+        }
     }
 
     private setSelectable(id: string, selectable: boolean) {

@@ -199,7 +199,7 @@ class InspectionPointContainer extends Container {
         remove.dom.title = '删除巡检点位';
 
         (this.headerElement.dom as HTMLElement).style.display = 'grid';
-        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '60px 1fr 105px';
         (this.headerElement.dom as HTMLElement).style.alignItems = 'center';
         (this.headerElement.dom as HTMLElement).style.columnGap = '0px';
         (this.headerElement.dom as HTMLElement).style.width = '100%';
@@ -208,8 +208,8 @@ class InspectionPointContainer extends Container {
         const leftWrap = new Container({ class: 'splat-item-left' });
         (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
         (leftWrap.dom as HTMLElement).style.alignItems = 'center';
-        (leftWrap.dom as HTMLElement).style.gap = '4px';
-        (leftWrap.dom as HTMLElement).style.width = '40px';
+        (leftWrap.dom as HTMLElement).style.gap = '8px';
+        (leftWrap.dom as HTMLElement).style.width = '60px';
         leftWrap.append(this.collapseIcon);
 
         const actionsWrap = new Container({ class: 'splat-item-actions' });
@@ -439,7 +439,7 @@ class InspectionObjectGroupContainer extends Container {
         remove.dom.title = '删除分组';
 
         (this.headerElement.dom as HTMLElement).style.display = 'grid';
-        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '60px 1fr 105px';
         (this.headerElement.dom as HTMLElement).style.alignItems = 'center';
         (this.headerElement.dom as HTMLElement).style.columnGap = '0px';
         (this.headerElement.dom as HTMLElement).style.width = '100%';
@@ -448,8 +448,8 @@ class InspectionObjectGroupContainer extends Container {
         const leftWrap = new Container({ class: 'splat-item-left' });
         (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
         (leftWrap.dom as HTMLElement).style.alignItems = 'center';
-        (leftWrap.dom as HTMLElement).style.gap = '4px';
-        (leftWrap.dom as HTMLElement).style.width = '40px';
+        (leftWrap.dom as HTMLElement).style.gap = '8px';
+        (leftWrap.dom as HTMLElement).style.width = '60px';
         leftWrap.append(this.collapseIcon);
 
         const actionsWrap = new Container({ class: 'splat-item-actions' });
@@ -618,7 +618,7 @@ class SplatItem extends Container {
 
         this.headerWrap = new Container({ class: 'splat-item-header' });
         (this.headerWrap.dom as HTMLElement).style.display = 'grid';
-        (this.headerWrap.dom as HTMLElement).style.gridTemplateColumns = '40px 1fr 105px';
+        (this.headerWrap.dom as HTMLElement).style.gridTemplateColumns = '60px 1fr 105px';
         (this.headerWrap.dom as HTMLElement).style.alignItems = 'center';
         (this.headerWrap.dom as HTMLElement).style.columnGap = '0px';
         (this.headerWrap.dom as HTMLElement).style.width = '100%';
@@ -693,8 +693,8 @@ class SplatItem extends Container {
         const leftWrap = new Container({ class: 'splat-item-left' });
         (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
         (leftWrap.dom as HTMLElement).style.alignItems = 'center';
-        (leftWrap.dom as HTMLElement).style.gap = '4px';
-        (leftWrap.dom as HTMLElement).style.width = '40px';
+        (leftWrap.dom as HTMLElement).style.gap = '8px';
+        (leftWrap.dom as HTMLElement).style.width = '60px';
 
         const actionsWrap = new Container({ class: 'splat-item-actions' });
         (actionsWrap.dom as HTMLElement).style.display = 'inline-flex';
@@ -807,6 +807,7 @@ class SplatItem extends Container {
         const handleRemove = (event: MouseEvent) => {
             console.log('删除按钮被点击 - SplatItem:', this.name);
             event.stopPropagation();
+            event.stopImmediatePropagation();
             event.preventDefault();
             this.emit('removeClicked', this);
         };
@@ -841,6 +842,8 @@ class SplatItem extends Container {
         unselectable.dom.addEventListener('click', toggleSelectable);
         duplicate.dom.addEventListener('click', handleDuplicate);
         remove.dom.addEventListener('click', handleRemove);
+        remove.dom.addEventListener('pointerdown', e => e.stopPropagation());
+        remove.dom.addEventListener('mousedown', e => e.stopPropagation());
 
         // 保存事件处理器引用以便后续移除
         const handleItemClick = (event: MouseEvent) => {
@@ -894,6 +897,8 @@ class SplatItem extends Container {
             unselectable.dom.removeEventListener('click', toggleSelectable);
             duplicate.dom.removeEventListener('click', handleDuplicate);
             remove.dom.removeEventListener('click', handleRemove);
+            // remove.dom.removeEventListener('pointerdown', stopProp); // Anonymous function cannot be removed easily, but it's fine since DOM is removed
+            // remove.dom.removeEventListener('mousedown', stopProp);
             this.headerWrap.dom.removeEventListener('click', handleItemClick);
             this.toggleCollapse.dom.removeEventListener('click', toggleChildrenBound);
             this.toggleExpand.dom.removeEventListener('click', toggleChildrenBound);
@@ -1065,6 +1070,12 @@ class SplatList extends Container {
                     (vIcon as HTMLElement).classList.add('splat-type-icon');
                     (item.headerWrap.dom.querySelector('.splat-item-left') as HTMLElement)?.appendChild(vIcon);
                 } catch {}
+
+                // Remove visibility and selectability icons for child items
+                const iconsToRemove = item.dom.querySelectorAll('.splat-item-visible, .splat-item-selectable');
+                iconsToRemove.forEach((icon) => {
+                    icon.parentElement?.removeChild(icon);
+                });
                 if (parentItem) {
                     parentItem.childrenWrap.append(item);
                 } else {
@@ -1111,29 +1122,37 @@ class SplatList extends Container {
                 events.fire('inspectionObjects.edit', payload.id);
             });
             item.on('removeClicked', () => {
-                const parentId = (item.dom as HTMLElement).dataset.inspectionParentId;
+                const dom = item.dom as HTMLElement;
+                const id = dom.dataset.inspectionId || payload.id;
+                const parentId = dom.dataset.inspectionParentId;
                 if (parentId) {
-                    // 子级从父项中移除
-                    this.inspectionObjectItems.get(parentId)?.remove(item);
+                    const pItem = this.inspectionObjectItems.get(parentId);
+                    if (pItem && pItem.childrenWrap) {
+                        try {
+                            pItem.childrenWrap.remove(item);
+                        } catch {}
+                    }
                 } else {
                     (group as any).removeFromContent(item);
                 }
-                events.fire('inspectionObjects.removeItem', payload.id);
-                this.inspectionObjectItems.delete(payload.id);
+                events.fire('inspectionObjects.removeItem', id);
+                this.inspectionObjectItems.delete(id);
             });
             item.on('rename', (value: string) => {
                 item.name = value;
                 // 可根据需要将名称同步到工具
             });
-            item.on('visible', () => {
-                events.fire('inspectionObjects.setVisible', payload.id, true);
-            });
-            item.on('invisible', () => {
-                events.fire('inspectionObjects.setVisible', payload.id, false);
-            });
-            item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => {
-                events.fire('inspectionObjects.setSelectable', payload.id, selectable);
-            });
+            if (!payload.parentId) {
+                item.on('visible', () => {
+                    events.fire('inspectionObjects.setVisible', payload.id, true);
+                });
+                item.on('invisible', () => {
+                    events.fire('inspectionObjects.setVisible', payload.id, false);
+                });
+                item.on('selectableChanged', (_it: SplatItem, selectable: boolean) => {
+                    events.fire('inspectionObjects.setSelectable', payload.id, selectable);
+                });
+            }
 
             events.fire('inspectionObjects.groupSelected', gid);
         };
@@ -1154,6 +1173,26 @@ class SplatList extends Container {
                 });
             }
         });
+
+        // 监听工具发出的子级刷新事件
+        events.on('inspectionObjects.replaceChildren', (parentId: string, newChildren: any[]) => {
+            const parentItem = this.inspectionObjectItems.get(parentId);
+            if (!parentItem || !parentItem.childrenWrap) return;
+
+            // 1. Clear existing children
+            const nodes = [...(parentItem.childrenWrap as any).dom.children] as HTMLElement[];
+            nodes.forEach((child) => {
+                const cid = child.dataset?.inspectionId;
+                if (cid) this.inspectionObjectItems.delete(cid);
+                child.remove();
+            });
+
+            // 2. Add new children
+            newChildren.forEach((payload) => {
+                addInspectionObject(payload);
+            });
+        });
+
         // 清除子项选中高亮
         events.on('inspectionObjects.clearSelection', () => {
             this.inspectionObjectItems.forEach((item) => {
@@ -1232,7 +1271,7 @@ class SplatList extends Container {
                 item.on('duplicateClicked', () => {
                     // Splat模型暂不支持复制功能，可在后续版本中实现
                     console.log('Splat模型复制功能暂未实现');
-                    +events.fire('showToast', 'Splat 不支持复制');
+                    events.fire('showToast', 'Splat 不支持复制');
                 });
                 item.on('removeClicked', () => {
                     console.log('SplatItem removeClicked 事件被触发，转发到 SplatList');
