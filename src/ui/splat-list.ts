@@ -717,7 +717,7 @@ class SplatItem extends Container {
         this.append(this.headerWrap);
 
         this.childrenWrap = new Container({ class: ['inspection-children'], hidden: true });
-        (this.childrenWrap.dom as HTMLElement).style.display = 'flex';
+        (this.childrenWrap.dom as HTMLElement).style.display = 'none';
         (this.childrenWrap.dom as HTMLElement).style.flexDirection = 'column';
         (this.childrenWrap.dom as HTMLElement).style.gap = '4px';
         (this.childrenWrap.dom as HTMLElement).style.marginLeft = '0';
@@ -863,6 +863,7 @@ class SplatItem extends Container {
             const kind = root.dataset.kind;
             if (kind === 'line' || kind === 'face') {
                 ui.childrenWrap.hidden = !ui.childrenWrap.hidden;
+                (ui.childrenWrap.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'flex';
                 (ui.toggleCollapse.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'inline-block';
                 (ui.toggleExpand.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'inline-block' : 'none';
                 if (ui.childrenWrap.hidden) ui.class.add('collapsed'); else ui.class.remove('collapsed');
@@ -883,6 +884,7 @@ class SplatItem extends Container {
             const kind = root.dataset.kind;
             if (!(kind === 'line' || kind === 'face')) return;
             ui.childrenWrap.hidden = !ui.childrenWrap.hidden;
+            (ui.childrenWrap.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'flex';
             (ui.toggleCollapse.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'inline-block';
             (ui.toggleExpand.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'inline-block' : 'none';
             if (ui.childrenWrap.hidden) ui.class.add('collapsed'); else ui.class.remove('collapsed');
