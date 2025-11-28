@@ -95,6 +95,12 @@ class InspectionObjectTool {
                 if (ev.button === 2) {
                     if (!moved) {
                         this.finishCurrentSegment();
+                        if (this.editingId) {
+                            this.setOverlayPointerEvents(true);
+                            this.editingId = null;
+                            this.editingVertexIndex = null;
+                            this.events.fire('inspectionObjects.clearSelection');
+                        }
                     }
                     return;
                 }
