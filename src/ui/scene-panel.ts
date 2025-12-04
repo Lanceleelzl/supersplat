@@ -40,7 +40,7 @@ class ScenePanel extends Container {
         });
 
         const sceneLabel = new Label({
-            text: localize('scene-manager'),
+            text: localize('panel.scene-manager'),
             class: 'panel-header-label'
         });
 
@@ -87,7 +87,7 @@ class ScenePanel extends Container {
         });
 
         const transformLabel = new Label({
-            text: localize('transform'),
+            text: localize('panel.scene-manager.transform'),
             class: 'panel-header-label'
         });
 

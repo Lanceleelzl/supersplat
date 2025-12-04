@@ -61,7 +61,8 @@ const application = {
                 { src: 'static/env/VertebraeHDRI_v1_512.png', dest: 'static/env' },
                 { src: 'static/draco.wasm.js' },
                 { src: 'static/draco.wasm.wasm' },
-                { src: 'src/public' }
+                { src: 'src/public' },
+                { src: 'static/locales', dest: 'static' }
             ]
         }),
         alias({

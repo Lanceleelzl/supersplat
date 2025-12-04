@@ -35,6 +35,7 @@ import { InspectionObjectToolbar } from './ui/inspection-object-toolbar';
 import { InspectionViewport } from './ui/inspection-viewport';
 import { SnapshotView } from './ui/snapshot-view';
 
+import { localizeInit } from './ui/localization';
 
 declare global {
     interface LaunchParams {
@@ -154,6 +155,9 @@ const main = async () => {
 
     // 编辑历史管理器
     const editHistory = new EditHistory(events);
+
+    // init localization
+    await localizeInit();
 
     // 编辑器用户界面
     const editorUI = new EditorUI(events);

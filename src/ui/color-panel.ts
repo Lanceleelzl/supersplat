@@ -50,7 +50,7 @@ class ColorPanel extends Container {
 
         const label = new Label({
             class: 'panel-header-label',
-            text: localize('colors')
+            text: localize('panel.colors')
         });
 
         header.append(icon);
@@ -63,7 +63,7 @@ class ColorPanel extends Container {
         });
 
         const tintLabel = new Label({
-            text: localize('colors.tint'),
+            text: localize('panel.colors.tint'),
             class: 'color-panel-row-label'
         });
 
@@ -82,7 +82,7 @@ class ColorPanel extends Container {
         });
 
         const temperatureLabel = new Label({
-            text: localize('colors.temperature'),
+            text: localize('panel.colors.temperature'),
             class: 'color-panel-row-label'
         });
 
@@ -104,7 +104,7 @@ class ColorPanel extends Container {
         });
 
         const saturationLabel = new Label({
-            text: localize('colors.saturation'),
+            text: localize('panel.colors.saturation'),
             class: 'color-panel-row-label'
         });
 
@@ -126,7 +126,7 @@ class ColorPanel extends Container {
         });
 
         const brightnessLabel = new Label({
-            text: localize('colors.brightness'),
+            text: localize('panel.colors.brightness'),
             class: 'color-panel-row-label'
         });
 
@@ -148,7 +148,7 @@ class ColorPanel extends Container {
         });
 
         const blackPointLabel = new Label({
-            text: localize('colors.blackPoint'),
+            text: localize('panel.colors.black-point'),
             class: 'color-panel-row-label'
         });
 
@@ -170,7 +170,7 @@ class ColorPanel extends Container {
         });
 
         const whitePointLabel = new Label({
-            text: localize('colors.whitePoint'),
+            text: localize('panel.colors.white-point'),
             class: 'color-panel-row-label'
         });
 
@@ -192,7 +192,7 @@ class ColorPanel extends Container {
         });
 
         const transparencyLabel = new Label({
-            text: localize('colors.transparency'),
+            text: localize('panel.colors.transparency'),
             class: 'color-panel-row-label'
         });
 
@@ -415,7 +415,7 @@ class ColorPanel extends Container {
         events.on('splat.whitePoint', updateUIFromState);
         events.on('splat.transparency', updateUIFromState);
 
-        tooltips.register(reset, localize('colors.reset'), 'bottom');
+        tooltips.register(reset, localize('panel.colors.reset'), 'bottom');
 
         // handle panel visibility
 
