@@ -470,12 +470,14 @@ class InspectionObjectTool {
 
         // Logic for pointer events based on editing/dragging state
         const info = this.findPointByDom(p.dom);
+        const obj = info ? this.objects.get(info.id) : null;
+        const isSelectable = obj ? (obj as any).selectable !== false : true;
         const isEditing = (info && info.id === this.editingId);
 
         if (this.isDragging) {
             p.dom.style.pointerEvents = 'none';
             p.dom.style.cursor = 'default';
-        } else if (isEditing) {
+        } else if (isEditing || !isSelectable) {
             p.dom.style.pointerEvents = 'none';
             p.dom.style.cursor = 'default';
         } else {
@@ -537,10 +539,13 @@ class InspectionObjectTool {
                 circ.dataset.index = i.toString();
 
                 const isEditing = (obj.id === this.editingId && i === this.editingVertexIndex);
+                const parentObj = this.objects.get(obj.id);
+                const isSelectable = parentObj ? (parentObj as any).selectable !== false : true;
+
                 if (this.isDragging) {
                     circ.style.pointerEvents = 'none';
                     circ.style.cursor = 'default';
-                } else if (isEditing) {
+                } else if (isEditing || !isSelectable) {
                     circ.style.pointerEvents = 'none';
                     circ.style.cursor = 'default';
                 } else {
@@ -560,15 +565,18 @@ class InspectionObjectTool {
         // 点对象图标
         this.objects.forEach((o) => {
             if (o.kind === 'point' && o.dom) {
-                o.dom.style.pointerEvents = enabled ? 'auto' : 'none';
-                o.dom.style.cursor = enabled ? 'grab' : 'default';
+                const isSelectable = (o as any).selectable !== false;
+                o.dom.style.pointerEvents = (enabled && isSelectable) ? 'auto' : 'none';
+                o.dom.style.cursor = (enabled && isSelectable) ? 'grab' : 'default';
             }
         });
         // 线/面顶点圆点
         this.lineFaceObjects.forEach((lf) => {
+            const parentObj = this.objects.get(lf.id);
+            const isSelectable = parentObj ? (parentObj as any).selectable !== false : true;
             lf.vertexCircles.forEach((c) => {
-                c.style.pointerEvents = enabled ? 'auto' : 'none';
-                c.style.cursor = enabled ? 'grab' : 'default';
+                c.style.pointerEvents = (enabled && isSelectable) ? 'auto' : 'none';
+                c.style.cursor = (enabled && isSelectable) ? 'grab' : 'default';
             });
         });
     }
@@ -683,6 +691,10 @@ class InspectionObjectTool {
     }
 
     private startEditingVertex(id: string, index: number) {
+        // Check if selectable
+        const obj = this.objects.get(id);
+        if (obj && (obj as any).selectable === false) return;
+
         this.editingId = id;
         this.editingVertexIndex = index;
 
@@ -821,6 +833,24 @@ class InspectionObjectTool {
         if (!obj) return;
         // DOM 图标本身不接收事件，selectable 作为占位状态
         (obj as any).selectable = selectable;
+
+        // 如果当前正在编辑该对象（或其子节点），且设为不可选，则强制结束编辑
+        if (!selectable && this.editingId === id) {
+            // 如果正在拖拽，强制重置拖拽状态
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.events.fire('tool.dragging', false);
+                this.events.fire('tool.transformed');
+            }
+
+            this.events.fire('inspectionObjects.clearSelection');
+            // 触发全局选择变更以更新 Gizmo 状态（隐藏 Gizmo）
+            this.events.fire('selection.changed', null);
+        }
+
+        // 立即更新视图状态
+        this.updateAllMarkers();
+        this.updateAllLineFaceSvgs();
     }
 
     // events wiring

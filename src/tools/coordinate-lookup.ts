@@ -31,10 +31,12 @@ class CoordinateLookupTool {
     private markerMaterial: StandardMaterial | null = null;
     private markerReady = false;
     // 以“直径(px)”为输入语义，并直接按直径计算屏幕尺寸。
-    // 默认直径 10px
-    private markerDesiredPx = 10; // 目标屏幕像素直径
+    // 默认直径 30px (图标模式)
+    private markerDesiredPx = 30; // 目标屏幕像素直径
     private markerMode: 'icon' | 'diameter' = 'icon'; // 初始为图标模式
-    
+    private iconSize = 30;
+    private sphereSize = 10;
+
 
     constructor(events: Events, scene: Scene, canvasContainer?: Container) {
         this.events = events;
@@ -70,16 +72,36 @@ class CoordinateLookupTool {
             min: 1,
             max: 256,
             precision: 0,
-            // 显示直径，默认 10
-            value: 10
+            // 显示直径，默认 30
+            value: 30
         });
         controlsRow.append(sizeLabel);
         controlsRow.append(this.sizeInput);
         // 标签点击切换模式：图标 <-> 直径
         try {
             sizeLabel.dom.addEventListener('click', () => {
+                // 切换前保存当前尺寸
+                if (this.markerMode === 'icon') {
+                    this.iconSize = this.markerDesiredPx;
+                } else {
+                    this.sphereSize = this.markerDesiredPx;
+                }
+
                 this.markerMode = this.markerMode === 'icon' ? 'diameter' : 'icon';
                 sizeLabel.text = this.markerMode === 'icon' ? '图标' : '直径(px)';
+
+                // 切换后恢复对应尺寸
+                if (this.markerMode === 'icon') {
+                    this.markerDesiredPx = this.iconSize;
+                } else {
+                    this.markerDesiredPx = this.sphereSize;
+                }
+
+                // 更新输入框显示
+                if (this.sizeInput) {
+                    this.sizeInput.value = this.markerDesiredPx;
+                }
+
                 this.updateMarker();
             });
         } catch (_e) { /* ignore */ }
@@ -89,8 +111,12 @@ class CoordinateLookupTool {
             el.style.cursor = 'default';
             el.style.userSelect = 'none';
             el.title = '点击切换图标/直径';
-            const onEnter = () => { el.style.filter = 'brightness(1.08)'; };
-            const onLeave = () => { el.style.filter = ''; };
+            const onEnter = () => {
+                el.style.filter = 'brightness(1.08)';
+            };
+            const onLeave = () => {
+                el.style.filter = '';
+            };
             el.addEventListener('mouseenter', onEnter);
             el.addEventListener('mouseleave', onLeave);
             const onPointerDown = (e: PointerEvent) => {
@@ -156,6 +182,12 @@ class CoordinateLookupTool {
                 const diameter = Math.max(1, Math.min(256, Math.round(v)));
                 // 直接使用直径像素
                 this.markerDesiredPx = diameter;
+                // 同步保存到对应模式的记录中
+                if (this.markerMode === 'icon') {
+                    this.iconSize = diameter;
+                } else {
+                    this.sphereSize = diameter;
+                }
             }
         });
 
@@ -509,8 +541,6 @@ class CoordinateLookupTool {
         if (this.markerDom) this.markerDom.style.display = 'none';
         this.updateVisibility();
     }
-
-    
 }
 
 export { CoordinateLookupTool };
