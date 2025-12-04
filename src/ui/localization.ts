@@ -10,11 +10,12 @@ const localizeInit = () => {
         detection: {
             order: ['querystring', /* 'cookie', 'localStorage', 'sessionStorage',*/ 'navigator', 'htmlTag']
         },
+        lng: 'zh-CN', // 强制默认为中文
         backend: {
             loadPath: './static/locales/{{lng}}.json'
         },
         supportedLngs: ['de', 'en', 'es', 'fr', 'ja', 'ko', 'pt-BR', 'ru', 'zh-CN'],
-        fallbackLng: 'en',
+        fallbackLng: 'zh-CN',
         interpolation: {
             escapeValue: false
         }
