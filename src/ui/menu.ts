@@ -93,19 +93,6 @@ class Menu extends Container {
             event.stopPropagation();
         });
 
-        const iconDom = document.createElement('img');
-        iconDom.src = logoSvg;
-        iconDom.setAttribute('id', 'app-icon');
-
-        const aDom = document.createElement('a');
-        aDom.href = new URL(window.location.href).origin;
-        aDom.target = '_blank';
-        aDom.appendChild(iconDom);
-
-        const icon = new Element({
-            dom: aDom
-        });
-
         const scene = new Label({
             text: localize('menu.file'),
             class: 'menu-option'
@@ -161,7 +148,6 @@ class Menu extends Container {
         buttonsContainer.append(collapse);
         buttonsContainer.append(arrow);
 
-        menubar.append(icon);
         menubar.append(buttonsContainer);
 
         const exportMenuPanel = new MenuPanel([{

@@ -6,6 +6,7 @@ import { EditHistory } from './edit-history';
 import { registerEditorEvents } from './editor';
 import { Events } from './events';
 import { initFileHandler } from './file-handler';
+import { registerIframeApi } from './iframe-api';
 import { registerPlySequenceEvents } from './ply-sequence';
 import { registerPublishEvents } from './publish';
 import { registerRenderEvents } from './render';
@@ -17,6 +18,7 @@ import { registerTimelineEvents } from './timeline';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
 import { CoordinateLookupTool } from './tools/coordinate-lookup';
+import { EyedropperSelection } from './tools/eyedropper-selection';
 import { FloodSelection } from './tools/flood-selection';
 import { InspectionObjectTool } from './tools/inspection-object-tool';
 import { LassoSelection } from './tools/lasso-selection';
@@ -33,9 +35,9 @@ import { EditorUI } from './ui/editor';
 import { ExcelExporter } from './ui/excel-exporter';
 import { InspectionObjectToolbar } from './ui/inspection-object-toolbar';
 import { InspectionViewport } from './ui/inspection-viewport';
+import { localizeInit } from './ui/localization';
 import { SnapshotView } from './ui/snapshot-view';
 
-import { localizeInit } from './ui/localization';
 
 declare global {
     interface LaunchParams {
@@ -94,6 +96,7 @@ const initShortcuts = (events: Events) => {
     shortcuts.register(['L', 'l'], { event: 'tool.lassoSelection', sticky: true });  // 套索选择
     shortcuts.register(['B', 'b'], { event: 'tool.brushSelection', sticky: true });  // 笔刷选择
     shortcuts.register(['O', 'o'], { event: 'tool.floodSelection', sticky: true });  // 洪水选择工具
+    shortcuts.register(['E', 'e'], { event: 'tool.eyedropperSelection', sticky: true }); // 吸管工具
     shortcuts.register(['A', 'a'], { event: 'select.all', ctrl: true });  // 全选
     shortcuts.register(['A', 'a'], { event: 'select.none', shift: true });  // 取消选择
     shortcuts.register(['I', 'i'], { event: 'select.invert', ctrl: true });  // 反选
@@ -300,6 +303,7 @@ const main = async () => {
     toolManager.register('lassoSelection', new LassoSelection(events, editorUI.toolsContainer.dom, mask));
     toolManager.register('sphereSelection', new SphereSelection(events, scene, editorUI.canvasContainer));
     toolManager.register('boxSelection', new BoxSelection(events, scene, editorUI.canvasContainer));
+    toolManager.register('eyedropperSelection', new EyedropperSelection(events, editorUI.toolsContainer.dom, editorUI.canvasContainer));
     toolManager.register('move', new MoveTool(events, scene, editorUI.toolsContainer.dom, editorUI.canvasContainer));
     toolManager.register('rotate', new RotateTool(events, scene));
     toolManager.register('scale', new ScaleTool(events, scene));
@@ -318,6 +322,7 @@ const main = async () => {
     registerPublishEvents(events);
     registerDocEvents(scene, events);
     registerRenderEvents(scene, events);
+    registerIframeApi(events);
     initShortcuts(events);
 
     // 初始化Excel导出器
