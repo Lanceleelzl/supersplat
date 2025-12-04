@@ -67,10 +67,10 @@ class ScenePanel extends Container {
             events.invoke('doc.new');
         });
 
-        tooltips.register(sceneImport, localize('menu.file.import'), 'top');
-        tooltips.register(sceneNew, localize('menu.file.new'), 'top');
+        tooltips.register(sceneImport, localize('menu.file.import'), 'bottom');
+        tooltips.register(sceneNew, localize('menu.file.new'), 'bottom');
 
-        const splatList = new SplatList(events);
+        const splatList = new SplatList(events, tooltips);
 
         const splatListContainer = new Container({
             class: 'splat-list-container'

@@ -18,6 +18,7 @@ import showSvg from './svg/show.svg';
 import vertexSvg from './svg/vertex.svg';
 import zhankaiSvg from './svg/zhankai.svg';
 import zhedieSvg from './svg/zhedie.svg';
+import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -133,7 +134,7 @@ class InspectionPointContainer extends Container {
     private events?: Events;
     private _expanding = false;
 
-    constructor(pointName: string, events?: Events, args = {}) {
+    constructor(pointName: string, events?: Events, tooltips?: Tooltips, args = {}) {
         args = {
             ...args,
             class: ['inspection-point-container']
@@ -161,42 +162,50 @@ class InspectionPointContainer extends Container {
         });
 
         // 创建操作按钮
-        const visible = new PcuiElement({
-            dom: createSvg(showSvg),
+        const visible = new Container({
             class: 'splat-item-visible'
         });
+        visible.dom.appendChild(createSvg(showSvg));
+        if (tooltips) tooltips.register(visible, '显示', 'bottom');
+        else visible.dom.title = '显示';
 
-        const invisible = new PcuiElement({
-            dom: createSvg(hiddenSvg),
+        const invisible = new Container({
             class: 'splat-item-visible',
             hidden: true
         });
+        invisible.dom.appendChild(createSvg(hiddenSvg));
+        if (tooltips) tooltips.register(invisible, '隐藏', 'bottom');
+        else invisible.dom.title = '隐藏';
 
         // 添加可选/不可选按钮
-        this.selectableButton = new PcuiElement({
-            dom: createSvg(selectedSvg),
+        this.selectableButton = new Container({
             class: 'splat-item-selectable'
         });
-        this.selectableButton.dom.title = '可选中';
+        this.selectableButton.dom.appendChild(createSvg(selectedSvg));
+        if (tooltips) tooltips.register(this.selectableButton, '可选中', 'bottom');
+        else this.selectableButton.dom.title = '可选中';
 
-        this.unselectableButton = new PcuiElement({
-            dom: createSvg(selectedNoSvg),
+        this.unselectableButton = new Container({
             class: 'splat-item-selectable',
             hidden: true
         });
-        this.unselectableButton.dom.title = '不可选中';
+        this.unselectableButton.dom.appendChild(createSvg(selectedNoSvg));
+        if (tooltips) tooltips.register(this.unselectableButton, '不可选中', 'bottom');
+        else this.unselectableButton.dom.title = '不可选中';
 
-        const duplicate = new PcuiElement({
-            dom: createSvg(selectDuplicateSvg),
+        const duplicate = new Container({
             class: 'splat-item-duplicate'
         });
-        duplicate.dom.title = '原位复制巡检点位';
+        duplicate.dom.appendChild(createSvg(selectDuplicateSvg));
+        if (tooltips) tooltips.register(duplicate, '原位复制巡检点位', 'bottom');
+        else duplicate.dom.title = '原位复制巡检点位';
 
-        const remove = new PcuiElement({
-            dom: createSvg(deleteSvg),
+        const remove = new Container({
             class: 'splat-item-delete'
         });
-        remove.dom.title = '删除巡检点位';
+        remove.dom.appendChild(createSvg(deleteSvg));
+        if (tooltips) tooltips.register(remove, '删除巡检点位', 'bottom');
+        else remove.dom.title = '删除巡检点位';
 
         (this.headerElement.dom as HTMLElement).style.display = 'grid';
         (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '60px 1fr 105px';
@@ -416,7 +425,7 @@ class InspectionObjectGroupContainer extends Container {
     private groupId: string;
     private _expanding = false;
 
-    constructor(groupId: string, events: Events, args = {}) {
+    constructor(groupId: string, events: Events, tooltips?: Tooltips, args = {}) {
         args = {
             ...args,
             class: ['inspection-point-container']
@@ -429,14 +438,35 @@ class InspectionObjectGroupContainer extends Container {
         this.collapseIcon = new PcuiElement({ dom: createSvg(collapseSvg), class: 'inspection-point-collapse-icon' });
         this.groupLabel = new Label({ text: groupId, class: ['inspection-point-label', 'splat-item-text'] });
 
-        const visible = new PcuiElement({ dom: createSvg(showSvg), class: 'splat-item-visible' });
-        const invisible = new PcuiElement({ dom: createSvg(hiddenSvg), class: 'splat-item-visible', hidden: true });
-        const selectable = new PcuiElement({ dom: createSvg(selectedSvg), class: 'inspection-point-selectable' });
-        const unselectable = new PcuiElement({ dom: createSvg(selectedNoSvg), class: 'inspection-point-selectable', hidden: true });
-        const duplicate = new PcuiElement({ dom: createSvg(selectDuplicateSvg), class: 'inspection-point-duplicate' });
-        duplicate.dom.title = '新增空组';
-        const remove = new PcuiElement({ dom: createSvg(deleteSvg), class: 'inspection-point-delete' });
-        remove.dom.title = '删除分组';
+        const visible = new Container({ class: 'splat-item-visible' });
+        visible.dom.appendChild(createSvg(showSvg));
+        if (tooltips) tooltips.register(visible, '显示分组', 'bottom');
+        else visible.dom.title = '显示分组';
+
+        const invisible = new Container({ class: 'splat-item-visible', hidden: true });
+        invisible.dom.appendChild(createSvg(hiddenSvg));
+        if (tooltips) tooltips.register(invisible, '隐藏分组', 'bottom');
+        else invisible.dom.title = '隐藏分组';
+
+        const selectable = new Container({ class: 'inspection-point-selectable' });
+        selectable.dom.appendChild(createSvg(selectedSvg));
+        if (tooltips) tooltips.register(selectable, '可选中', 'bottom');
+        else selectable.dom.title = '可选中';
+
+        const unselectable = new Container({ class: 'inspection-point-selectable', hidden: true });
+        unselectable.dom.appendChild(createSvg(selectedNoSvg));
+        if (tooltips) tooltips.register(unselectable, '不可选中', 'bottom');
+        else unselectable.dom.title = '不可选中';
+
+        const duplicate = new Container({ class: 'inspection-point-duplicate' });
+        duplicate.dom.appendChild(createSvg(selectDuplicateSvg));
+        if (tooltips) tooltips.register(duplicate, '新增空组', 'bottom');
+        else duplicate.dom.title = '新增空组';
+
+        const remove = new Container({ class: 'inspection-point-delete' });
+        remove.dom.appendChild(createSvg(deleteSvg));
+        if (tooltips) tooltips.register(remove, '删除分组', 'bottom');
+        else remove.dom.title = '删除分组';
 
         (this.headerElement.dom as HTMLElement).style.display = 'grid';
         (this.headerElement.dom as HTMLElement).style.gridTemplateColumns = '60px 1fr 105px';
@@ -608,7 +638,7 @@ class SplatItem extends Container {
     public childrenWrap: Container;
     destroy: () => void;
 
-    constructor(name: string, edit: TextInput, args = {}) {
+    constructor(name: string, edit: TextInput, tooltips?: Tooltips, args = {}) {
         args = {
             ...args,
             class: ['splat-item', 'visible', 'selectable']
@@ -655,40 +685,49 @@ class SplatItem extends Container {
         (text.dom as HTMLElement).style.minWidth = '0';
         (text.dom as HTMLElement).style.width = '100%';
 
-        const visible = new PcuiElement({
-            dom: createSvg(showSvg),
+        const visible = new Container({
             class: 'splat-item-visible'
         });
+        visible.dom.appendChild(createSvg(showSvg));
+        if (tooltips) tooltips.register(visible, '显示', 'bottom');
+        else visible.dom.title = '显示';
 
-        const invisible = new PcuiElement({
-            dom: createSvg(hiddenSvg),
+        const invisible = new Container({
             class: 'splat-item-visible',
             hidden: true
         });
+        invisible.dom.appendChild(createSvg(hiddenSvg));
+        if (tooltips) tooltips.register(invisible, '隐藏', 'bottom');
+        else invisible.dom.title = '隐藏';
 
-        const duplicate = new PcuiElement({
-            dom: createSvg(selectDuplicateSvg),
+        const duplicate = new Container({
             class: 'splat-item-duplicate'
         });
-        duplicate.dom.title = '原位复制';
+        duplicate.dom.appendChild(createSvg(selectDuplicateSvg));
+        if (tooltips) tooltips.register(duplicate, '原位复制', 'bottom');
+        else duplicate.dom.title = '原位复制';
 
-        const remove = new PcuiElement({
-            dom: createSvg(deleteSvg),
+        const remove = new Container({
             class: 'splat-item-delete'
         });
+        remove.dom.appendChild(createSvg(deleteSvg));
+        if (tooltips) tooltips.register(remove, '删除', 'bottom');
+        else remove.dom.title = '删除';
 
-        const selectable = new PcuiElement({
-            dom: createSvg(selectedSvg),
+        const selectable = new Container({
             class: 'splat-item-selectable'
         });
-        selectable.dom.title = '可选中';
+        selectable.dom.appendChild(createSvg(selectedSvg));
+        if (tooltips) tooltips.register(selectable, '可选中', 'bottom');
+        else selectable.dom.title = '可选中';
 
-        const unselectable = new PcuiElement({
-            dom: createSvg(selectedNoSvg),
+        const unselectable = new Container({
             class: 'splat-item-selectable',
             hidden: true
         });
-        unselectable.dom.title = '不可选中';
+        unselectable.dom.appendChild(createSvg(selectedNoSvg));
+        if (tooltips) tooltips.register(unselectable, '不可选中', 'bottom');
+        else unselectable.dom.title = '不可选中';
 
         const leftWrap = new Container({ class: 'splat-item-left' });
         (leftWrap.dom as HTMLElement).style.display = 'inline-flex';
@@ -952,14 +991,16 @@ class SplatList extends Container {
     private itemCounters: Map<string, number> = new Map();
     private inspectionObjectItems: Map<string, SplatItem> = new Map();
     private inspectionObjectItemGroups: Map<string, string> = new Map();
+    private tooltips: Tooltips;
 
-    constructor(events: Events, args = {}) {
+    constructor(events: Events, tooltips: Tooltips, args = {}) {
         args = {
             ...args,
             class: 'splat-list'
         };
 
         super(args);
+        this.tooltips = tooltips;
 
         events.function('inspectionObjects.currentGroupId', () => this.currentGroupId);
 
@@ -987,7 +1028,7 @@ class SplatList extends Container {
             }
             let group = this.inspectionObjectsGroups.get(groupId);
             if (!group) {
-                const groupContainer = new InspectionObjectGroupContainer(groupId, events);
+                const groupContainer = new InspectionObjectGroupContainer(groupId, events, this.tooltips);
                 // duplicate adds empty group
                 groupContainer.on('duplicateClicked', () => {
                     const newId = nextGroupId();
@@ -1043,7 +1084,7 @@ class SplatList extends Container {
             const prefix = kind === 'point' ? '点' : kind === 'line' ? '线' : '面';
             const name = `${prefix}-${gid}-${idx}`;
             const edit2 = new TextInput({ id: 'inspection-obj-edit' });
-            const item = new SplatItem(name, edit2);
+            const item = new SplatItem(name, edit2, this.tooltips);
             item.class.add('inspection-model');
             item.class.add('no-duplicate');
             if (payload.parentId) {
@@ -1247,7 +1288,7 @@ class SplatList extends Container {
         events.on('scene.elementAdded', (element: Element) => {
             if (element.type === ElementType.splat) {
                 const splat = element as Splat;
-                const item = new SplatItem(splat.name, edit);
+                const item = new SplatItem(splat.name, edit, this.tooltips);
                 this.splatCategory.appendToContent(item);
                 items.set(splat, item);
 
@@ -1296,7 +1337,7 @@ class SplatList extends Container {
 
                     if (!pointContainer) {
                         // 创建新的巡检点容器
-                        pointContainer = new InspectionPointContainer(inspectionPointName, events);
+                        pointContainer = new InspectionPointContainer(inspectionPointName, events, this.tooltips);
                         this.inspectionPoints.set(inspectionPointName, pointContainer);
                         this.inspectionCategory.appendToContent(pointContainer);
 
@@ -1330,7 +1371,7 @@ class SplatList extends Container {
 
                     // 创建子模型项
                     const displayName = inspectionMarkerName || model.filename;
-                    const item = new SplatItem(displayName, edit);
+                    const item = new SplatItem(displayName, edit, this.tooltips);
                     item.class.add('inspection-model');
 
                     // 添加到巡检点容器
@@ -1339,7 +1380,7 @@ class SplatList extends Container {
                     items.set(model, item);
                 } else {
                     // 普通GLTF模型
-                    const item = new SplatItem(model.filename, edit);
+                    const item = new SplatItem(model.filename, edit, this.tooltips);
                     this.gltfCategory.appendToContent(item);
                     items.set(model, item);
                 }

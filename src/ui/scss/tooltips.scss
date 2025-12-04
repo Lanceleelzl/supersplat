@@ -5,7 +5,8 @@
     background-color: $bcg-darkest;
     border-radius: 3px;
     padding: 1px;
-    z-index: 3001;
+    z-index: 10000;
+    pointer-events: none;
 }
 
 .tooltips-content {
