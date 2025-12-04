@@ -408,7 +408,7 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
         } finally {
             scene.camera.endOffscreenMode();
             scene.camera.renderOverlays = true;
-<<<<<<< HEAD
+            scene.gizmoLayer.enabled = true;
             // 恢复正确的背景色而不是设置为透明黑色
             const bgClr = events.invoke('bgClr');
             if (bgClr) {
@@ -416,10 +416,6 @@ const registerRenderEvents = (scene: Scene, events: Events) => {
             } else {
                 scene.camera.entity.camera.clearColor.set(0.4, 0.4, 0.4, 1);
             }
-=======
-            scene.gizmoLayer.enabled = true;
-            scene.camera.entity.camera.clearColor.set(0, 0, 0, 0);
->>>>>>> upstream/main
             scene.lockedRenderMode = false;
             scene.forceRender = true;       // camera likely moved, finish with normal render
 
