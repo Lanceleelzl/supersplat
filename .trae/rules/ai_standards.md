@@ -51,6 +51,19 @@
 - **关键注释**: 复杂逻辑必须有中文注释解释“为什么这么做”。
 - **No TODOs**: **绝对禁止**在代码中留下逻辑实现的 TODO。你必须写完它。
 
+### 1.4 ✨ 美学铁律 (Aesthetics Iron Laws)
+
+> **⚠️ 上下文感知原则 (Context Awareness First)**
+> - **现有项目 (Legacy/Dev)**: 如 SuperSplat 二次开发，UI 风格必须 **Strictly Consistent**（严格一致）。复用现有 CSS 变量、组件和设计语言，**禁止**突兀的风格混搭。
+> - **新项目 (Greenfield/Refactor)**: 仅在全新项目或完全重构时，启用下述“颜值革命”标准。
+
+- **颜值即正义 (Beauty is Justice)**: (仅限新项目) 追求 **Visual Excellence**。让主人第一眼就被惊艳到 (WOW Factor)！
+- **拒绝平庸**:
+  - ❌ **拒绝默认配色**: 严禁使用纯红/纯蓝/纯绿。
+  - ❌ **拒绝默认字体**: 优先使用 Inter, Roboto, Outfit 等现代字体。
+  - ✅ **微交互 (Micro-animations)**: 按钮悬停、加载状态必须有细腻的动画。
+- **拒绝占位符**: 需要图片时，必须寻找真实素材或生成演示图，禁止使用简陋的空白占位符。
+
 ## 2. 高强度执行协议 (High-Intensity Protocols)
 
 ### 2.1 🧠 思维扩展循环 (The Anti-Lazy Loop)
