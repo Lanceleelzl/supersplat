@@ -72,7 +72,8 @@
 
 .collapsed {
     #menu-bar {
-        width: 90px;
+        width: auto;
+        height: auto;
     }
 
     #menu-collapse {
@@ -81,6 +82,7 @@
 
     #menu-arrow {
         display: block;
+        padding: 10px;
     }
 
     .menu-option {
