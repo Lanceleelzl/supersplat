@@ -212,7 +212,9 @@ class EditorUI {
         topContainer.append(publishSettingsDialog);
         topContainer.append(imageSettingsDialog);
         topContainer.append(videoSettingsDialog);
-        topContainer.append(coordinateOriginDialog);
+        
+        // 将坐标原点设置面板添加到body而不是topContainer，参考InspectionExportPanel，解决层级问题
+        document.body.appendChild(coordinateOriginDialog.dom);
 
         // 将巡检导出面板添加到body而不是topContainer，避免被其他元素遮挡
         document.body.appendChild(inspectionExportPanel.dom);
