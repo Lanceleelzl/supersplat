@@ -1012,6 +1012,7 @@ class SplatList extends Container {
         this.inspectionCategory = new CategoryContainer('巡检点位');
         this.inspectionPoints = new Map<string, InspectionPointContainer>();
         this.inspectionObjectsCategory = new CategoryContainer('巡检对象', { class: ['category-container', 'inspection-objects-category'] });
+        this.inspectionObjectsCategory.collapsed = true;
         this.inspectionObjectsGroups = new Map();
 
         // 添加分类容器到主容器

@@ -101,8 +101,21 @@ class InspectionObjectToolbar extends Container {
                 if ((ev as any).buttons === 0) return; // 仅在按下时拖动
                 const dx = ev.clientX - startX;
                 const dy = ev.clientY - startY;
-                this.dom.style.left = `${Math.round(baseLeft + dx)}px`;
-                this.dom.style.top = `${Math.round(baseTop + dy)}px`;
+
+                const newX = baseLeft + dx;
+                const newY = baseTop + dy;
+
+                // 限制拖拽范围在窗口内
+                const maxX = window.innerWidth - this.dom.offsetWidth;
+                const maxY = window.innerHeight - this.dom.offsetHeight;
+
+                const clampedX = Math.max(0, Math.min(newX, maxX));
+                const clampedY = Math.max(0, Math.min(newY, maxY));
+
+                this.dom.style.left = `${Math.round(clampedX)}px`;
+                this.dom.style.top = `${Math.round(clampedY)}px`;
+                this.dom.style.right = 'auto';
+                this.dom.style.bottom = 'auto';
             };
             const up = (ev: PointerEvent) => {
                 try {
@@ -123,13 +136,13 @@ class InspectionObjectToolbar extends Container {
         };
         this.dom.style.pointerEvents = 'auto';
         // 捕获与冒泡阶段都阻止
-        ['pointerdown','pointerup','mousedown','mouseup','contextmenu'].forEach((type) => {
+        ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'contextmenu'].forEach((type) => {
             this.dom.addEventListener(type as any, stop);
         });
         this.dom.addEventListener('wheel', stop, { passive: false } as any);
         // 按钮也阻止事件穿透
         [this.btnPoint.dom, this.btnLine.dom, this.btnFace.dom, this.dragHandle.dom].forEach((el) => {
-            ['pointerdown','pointerup','mousedown','mouseup','contextmenu'].forEach((type) => {
+            ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'contextmenu'].forEach((type) => {
                 el.addEventListener(type as any, stop);
             });
         });
