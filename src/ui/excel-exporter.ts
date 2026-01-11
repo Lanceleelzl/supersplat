@@ -96,7 +96,7 @@ class ExcelExporter {
 
         let str = typeof value === 'string' ? value : JSON.stringify(value);
         if (!str) return '';
-        if (str[0] === '=') str = "'" + str;
+        if (str[0] === '=') str = `'${str}`;
         str = str.replace(/\r\n|\r|\n/g, ' ');
         if (str.length > 1000) str = str.slice(0, 1000);
         return str;
@@ -162,7 +162,7 @@ Excel导出成功！
     private detectPrecision(original: any): number {
         if (original == null) return 0;
         const s = typeof original === 'string' ? original : String(original);
-        const m = s.match(/\.([0-9]+)/);
+        const m = s.match(/\.(\d+)/);
         return m ? m[1].length : 0;
     }
 
@@ -238,7 +238,7 @@ Excel导出成功！
         const k0 = params.k0;
 
         const x = easting - params.falseEasting;
-        let y = northing - params.falseNorthing;
+        const y = northing - params.falseNorthing;
 
         const M = y / k0;
         const mu = M / (a * (1 - e2 / 4 - (3 * e2 * e2) / 64 - (5 * e2 * e2 * e2) / 256));
@@ -261,8 +261,8 @@ Excel导出成功！
         const R1 = (a * (1 - e2)) / Math.pow(1 - e2 * sinfp * sinfp, 1.5);
         const D = x / (N1 * k0);
 
-        const lat = fp - (N1 * tanfp / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ePrime2) * Math.pow(D, 4) / 24
-            + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ePrime2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
+        const lat = fp - (N1 * tanfp / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ePrime2) * Math.pow(D, 4) / 24 +
+            (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ePrime2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
 
         const lon0 = params.lon0Deg * (Math.PI / 180);
         const lon = lon0 + (D - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ePrime2 + 24 * T1 * T1) * Math.pow(D, 5) / 120) / cosfp;
@@ -314,8 +314,8 @@ Excel导出成功！
         const R1 = (a * (1 - e2)) / Math.pow(1 - e2 * sinfp * sinfp, 1.5);
         const D = x / (N1 * k0);
 
-        const lat = fp - (N1 * tanfp / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ePrime2) * Math.pow(D, 4) / 24
-            + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ePrime2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
+        const lat = fp - (N1 * tanfp / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ePrime2) * Math.pow(D, 4) / 24 +
+            (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ePrime2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
 
         const lon0 = ((zone - 1) * 6 - 180 + 3) * (Math.PI / 180);
         const lon = lon0 + (D - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ePrime2 + 24 * T1 * T1) * Math.pow(D, 5) / 120) / cosfp;
@@ -331,12 +331,12 @@ Excel导出成功！
         const gk = this.parseCgcs2000GKFromEPSG(epsg);
         const isWebMercator = this.parseWebMercatorFromEPSG(epsg);
         const target = (this.events.invoke('export.geodeticTarget') as ('wgs84' | 'cgcs2000')) || 'wgs84';
-        const ellipsoid = target === 'cgcs2000'
-            ? { a: 6378137.0, f: 1 / 298.257222101 }
-            : { a: 6378137.0, f: 1 / 298.257223563 };
+        const ellipsoid = target === 'cgcs2000' ?
+            { a: 6378137.0, f: 1 / 298.257222101 } :
+            { a: 6378137.0, f: 1 / 298.257223563 };
         let warnedDatumApprox = false;
 
-        return data.map((row) => {
+        const enriched = data.map((row) => {
             const xRaw = row['X坐标'];
             const yRaw = row['Y坐标'];
             const zRaw = row['Z坐标'];
@@ -412,7 +412,7 @@ Excel导出成功！
             }
 
             // 记录使用的 EPSG 编码，便于追踪
-            enrichedRow['EPSG'] = epsg || '';
+            enrichedRow.EPSG = epsg || '';
 
             return enrichedRow;
         });
@@ -421,6 +421,8 @@ Excel导出成功！
         if (warnedDatumApprox) {
             this.events.fire('toast', '提示：当前地理坐标基准选择与输入投影的基准不同，已进行近似转换（未应用七参数/网格改正）。高精度需求请使用权威转换库。');
         }
+
+        return enriched;
     }
 
     // 公共方法：手动触发导出（用于测试）

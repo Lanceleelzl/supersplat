@@ -1,4 +1,5 @@
 import { Button, Container, Element, Label } from '@playcanvas/pcui';
+
 import { Events } from '../events';
 import { localize } from './localization';
 import { Tooltips } from './tooltips';
@@ -63,7 +64,7 @@ class ViewModePanel extends Container {
             if (mode === 'perspective') {
                 buttonClasses.push('active');
             }
-            
+
             const button = new Button({
                 id: `view-mode-${mode}`,
                 class: buttonClasses,
@@ -75,7 +76,7 @@ class ViewModePanel extends Container {
                 class: 'view-mode-label',
                 text: config.name
             });
-            
+
             const buttonWrapper = new Container({
                 class: 'view-mode-button-wrapper'
             });
@@ -108,14 +109,14 @@ class ViewModePanel extends Container {
 
         this.currentMode = mode;
         this.updateActiveButton(mode);
-        
+
         // 触发视图模式变化事件
         this.events.fire('viewMode.set', mode);
     }
 
     private updateActiveButton(mode: ViewMode) {
         // 移除所有按钮的激活状态
-        Object.values(this.buttons).forEach(button => {
+        Object.values(this.buttons).forEach((button) => {
             button.class.remove('active');
         });
 

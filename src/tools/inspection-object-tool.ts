@@ -728,6 +728,10 @@ class InspectionObjectTool {
             t.scale.set(1, 1, 1);
             pivot.place(t);
             this.setSelectedOverlayInteractive(false);
+
+            // Force update UI visuals
+            this.updateAllMarkers();
+            this.updateAllLineFaceSvgs();
         }
     }
 

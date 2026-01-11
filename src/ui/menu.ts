@@ -7,12 +7,14 @@ import { MenuPanel, MenuItem } from './menu-panel';
 import arrowSvg from './svg/arrow.svg';
 import attributeSvg from './svg/attribute.svg';
 import collapseSvg from './svg/collapse.svg';
+import createTargetSvg from './svg/createtarget.svg';
 import selectDelete from './svg/delete.svg';
 import sceneExport from './svg/export.svg';
 import sceneImport from './svg/import.svg';
 import kuaizhaoSvg from './svg/kuaizhao.svg';
 import sceneNew from './svg/new.svg';
 import sceneOpen from './svg/open.svg';
+import oriSvg from './svg/ori.svg';
 import scenePublish from './svg/publish.svg';
 import rectangularVertebraSvg from './svg/rectangularVertebra.svg';
 import sceneSave from './svg/save.svg';
@@ -23,9 +25,6 @@ import selectLock from './svg/select-lock.svg';
 import selectNone from './svg/select-none.svg';
 import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
-import logoSvg from './svg/supersplat-logo.svg';
-import oriSvg from './svg/ori.svg';
-import createTargetSvg from './svg/createtarget.svg';
 
 const createSvg = (svgString: string) => {
     let svgContent: string;
@@ -326,29 +325,32 @@ class Menu extends Container {
         };
 
         this.inspectionMenuPanel = new MenuPanel([
-        {
-            text: '设置巡检对象',
-            icon: createSvg(createTargetSvg),
-            onSelect: () => { events.fire('inspectionObjects.toggleToolbar'); this.inspectionMenuPanel!.hidden = true; }
-        },
-        {
-            text: localize('inspection.add-point'),
-            icon: createSvg(sceneImport),
-            onSelect: () => events.fire('inspection.addPoint')
-        },
-        this.snapshotMenuItem,
-        this.frustumMenuItem,
-        this.attributeMenuItem,
-        {
-            text: '坐标参数设置',
-            icon: createSvg(oriSvg),
-            onSelect: async () => await events.invoke('show.coordinateOriginDialog')
-        },
-        {
-            text: '导出巡检参数',
-            icon: createSvg(sceneExport),
-            onSelect: () => events.fire('inspection.exportParams')
-        }]);
+            {
+                text: '设置巡检对象',
+                icon: createSvg(createTargetSvg),
+                onSelect: () => {
+                    events.fire('inspectionObjects.toggleToolbar'); this.inspectionMenuPanel!.hidden = true;
+                }
+            },
+            {
+                text: localize('inspection.add-point'),
+                icon: createSvg(sceneImport),
+                onSelect: () => events.fire('inspection.addPoint')
+            },
+            this.snapshotMenuItem,
+            this.frustumMenuItem,
+            this.attributeMenuItem,
+            {
+                text: '坐标参数设置',
+                icon: createSvg(oriSvg),
+                onSelect: async () => await events.invoke('show.coordinateOriginDialog')
+            },
+            {
+                text: '导出巡检参数',
+                icon: createSvg(sceneExport),
+                onSelect: () => events.fire('inspection.exportParams')
+            }
+        ]);
 
         const videoTutorialsMenuPanel = new MenuPanel([{
             text: localize('menu.help.video-tutorials.basics'),

@@ -83,6 +83,7 @@ class TransformTool {
             events.on('pivot.placed', reattach);
             events.on('pivot.moved', reattach);
             events.on('selection.changed', reattach);
+            events.on('inspectionObjects.selected', reattach);
         };
 
         this.deactivate = () => {
@@ -92,6 +93,7 @@ class TransformTool {
             events.off('pivot.placed', reattach);
             events.off('pivot.moved', reattach);
             events.off('selection.changed', reattach);
+            events.off('inspectionObjects.selected', reattach);
         };
 
         // initialize coodinate space

@@ -1,4 +1,5 @@
 import { Vec3, Mat4 } from 'playcanvas';
+
 import { Camera } from './camera';
 import { Events } from './events';
 import { ViewMode } from './ui/view-mode-panel';
@@ -18,7 +19,7 @@ class ViewModeManager {
     private events: Events;
     private currentMode: ViewMode = 'perspective';
     private isOrthographicLocked = false;
-    
+
     // 保存透视模式下的相机状态
     private perspectiveState = {
         azim: 30,
@@ -30,7 +31,7 @@ class ViewModeManager {
     constructor(camera: Camera, events: Events) {
         this.camera = camera;
         this.events = events;
-        
+
         this.bindEvents();
     }
 
@@ -91,10 +92,10 @@ class ViewModeManager {
 
     private setPerspectiveMode() {
         this.isOrthographicLocked = false;
-        
+
         // 设置为透视投影
         this.camera.ortho = false;
-        
+
         // 恢复透视模式下的相机状态
         this.camera.setAzimElev(this.perspectiveState.azim, this.perspectiveState.elev, 1);
         this.camera.setDistance(this.perspectiveState.distance, 1);
@@ -103,16 +104,16 @@ class ViewModeManager {
 
     private setOrthographicMode(mode: Exclude<ViewMode, 'perspective'>) {
         this.isOrthographicLocked = true;
-        
+
         // 设置为正交投影
         this.camera.ortho = true;
-        
+
         // 获取视角配置
         const viewConfig = ORTHOGRAPHIC_VIEWS[mode];
-        
+
         // 设置相机角度，使用较快的过渡
         this.camera.setAzimElev(viewConfig.azim, viewConfig.elev, 2);
-        
+
         // 保持当前的焦点和距离
         // 这样用户可以继续在当前视图中平移和缩放
     }

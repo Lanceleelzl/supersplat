@@ -894,6 +894,14 @@ class SplatItem extends Container {
                 target.closest('.splat-item-delete')) {
                 return;
             }
+            event.stopPropagation();
+            event.preventDefault();
+            const isToggleIconClick =
+                target.closest('.splat-item-toggle-icon') ||
+                target === (this.toggleCollapse.dom as any) ||
+                target === (this.toggleExpand.dom as any) ||
+                (this.toggleCollapse.dom as HTMLElement).contains(target) ||
+                (this.toggleExpand.dom as HTMLElement).contains(target);
             const root = (event.currentTarget as HTMLElement).closest('.splat-item') as HTMLElement | null;
             if (!root) return;
             const ui = ((root as any).__ui as SplatItem | undefined);
@@ -901,6 +909,7 @@ class SplatItem extends Container {
             ui.emit('click', ui);
             const kind = root.dataset.kind;
             if (kind === 'line' || kind === 'face') {
+                if (isToggleIconClick) return;
                 ui.childrenWrap.hidden = !ui.childrenWrap.hidden;
                 (ui.childrenWrap.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'flex';
                 (ui.toggleCollapse.dom as HTMLElement).style.display = ui.childrenWrap.hidden ? 'none' : 'inline-block';
@@ -909,8 +918,7 @@ class SplatItem extends Container {
             }
         };
 
-        // 绑定点击事件
-        this.headerWrap.dom.addEventListener('click', handleItemClick);
+        (this.dom as HTMLElement).addEventListener('click', handleItemClick);
 
         ((this.dom as any) as any).__ui = this;
         const toggleChildrenBound = (event: MouseEvent) => {
@@ -940,7 +948,7 @@ class SplatItem extends Container {
             remove.dom.removeEventListener('click', handleRemove);
             // remove.dom.removeEventListener('pointerdown', stopProp); // Anonymous function cannot be removed easily, but it's fine since DOM is removed
             // remove.dom.removeEventListener('mousedown', stopProp);
-            this.headerWrap.dom.removeEventListener('click', handleItemClick);
+            (this.dom as HTMLElement).removeEventListener('click', handleItemClick);
             this.toggleCollapse.dom.removeEventListener('click', toggleChildrenBound);
             this.toggleExpand.dom.removeEventListener('click', toggleChildrenBound);
         };
@@ -1156,15 +1164,21 @@ class SplatList extends Container {
             }
             this.inspectionObjectItems.set(payload.id, item);
             this.inspectionObjectItemGroups.set(payload.id, gid);
-            item.on('click', (e: Event) => {
-                if (e && e.stopPropagation) e.stopPropagation();
+
+            const selectItem = () => {
                 this.currentGroupId = gid;
-                // 全局清除所有子项的选中高亮，然后仅选中当前项
                 events.fire('inspectionObjects.clearSelection');
                 events.fire('selection', null);
                 item.selected = true;
                 events.fire('inspectionObjects.edit', payload.id);
+                events.fire('inspectionObjects.selected', payload.id);
+            };
+
+            item.on('click', (e: Event) => {
+                if (e && e.stopPropagation) e.stopPropagation();
+                selectItem();
             });
+
             item.on('removeClicked', () => {
                 const dom = item.dom as HTMLElement;
                 const id = dom.dataset.inspectionId || payload.id;
@@ -1182,10 +1196,11 @@ class SplatList extends Container {
                 events.fire('inspectionObjects.removeItem', id);
                 this.inspectionObjectItems.delete(id);
             });
+
             item.on('rename', (value: string) => {
                 item.name = value;
-                // 可根据需要将名称同步到工具
             });
+
             if (!payload.parentId) {
                 item.on('visible', () => {
                     events.fire('inspectionObjects.setVisible', payload.id, true);

@@ -138,7 +138,7 @@ class EntityTransformHandler implements TransformHandler {
 
         if (!oldt.equals(newt)) {
             this.events.fire('edit.add', new MultiOp([this.top, this.pop]));
-            
+
             // 触发变换完成事件，用于更新巡检相机视口
             this.events.fire('transform.changed', this.target);
         }

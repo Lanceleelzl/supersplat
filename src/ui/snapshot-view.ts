@@ -953,8 +953,8 @@ class SnapshotView extends Container {
                     this.fovInput.value = parseFloat(dDeg.toFixed(1));
                 }
 
-                this.nearInput && (this.nearInput.value = nearClip);
-                this.farInput && (this.farInput.value = farClip);
+                if (this.nearInput) this.nearInput.value = nearClip;
+                if (this.farInput) this.farInput.value = farClip;
 
                 // 根据水平FOV反算焦距(mm)，用于同步焦距控件显示
                 const hRadNow = this.snapshotCamera.camera.fov * Math.PI / 180;
@@ -1147,19 +1147,19 @@ class SnapshotView extends Container {
         const hDeg = this.snapshotCamera.camera.fov; // 始终以水平FOV存储
         if (mode === 'horizontal') {
             // 显示为水平FOV
-            this.fovInput && (this.fovInput.value = parseFloat(hDeg.toFixed(1)));
+            if (this.fovInput) this.fovInput.value = parseFloat(hDeg.toFixed(1));
         } else {
             // 显示为对角FOV（由水平FOV推导）
             const hRad = hDeg * Math.PI / 180;
             const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
-            this.fovInput && (this.fovInput.value = parseFloat(dDeg.toFixed(1)));
+            if (this.fovInput) this.fovInput.value = parseFloat(dDeg.toFixed(1));
         }
 
         // 同步焦距显示依据单位模式（基于水平FOV）
         const hRadNow = hDeg * Math.PI / 180;
         const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
         const eqFocal = realFocal * 36 / this.sensorWidthMm;
-        this.focalInput && (this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1)));
+        if (this.focalInput) this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1));
 
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
@@ -1173,7 +1173,7 @@ class SnapshotView extends Container {
         if (!this.snapshotCamera?.camera) return;
         let hDeg: number | undefined;
         let focalEq: number | undefined;
-        this.presetSelectEl && (this.presetSelectEl.value = key);
+        if (this.presetSelectEl) this.presetSelectEl.value = key;
         // 记录当前预设
         (this as any).presetKey = key;
         switch (key) {
@@ -1240,11 +1240,11 @@ class SnapshotView extends Container {
         // 应用到相机与输入框，依据锁定模式
         if (this.lockMode === 'horizontal') {
             this.snapshotCamera.camera.fov = hDeg!;
-            this.fovInput && (this.fovInput.value = Number(hDeg!.toFixed(1)));
+            if (this.fovInput) this.fovInput.value = Number(hDeg!.toFixed(1));
         } else {
             const hRad = (hDeg! * Math.PI / 180);
             const dDeg = 2 * Math.atan(Math.tan(hRad / 2) * Math.sqrt(1 + 1 / (aspect * aspect))) * 180 / Math.PI;
-            this.fovInput && (this.fovInput.value = Number(dDeg.toFixed(1)));
+            if (this.fovInput) this.fovInput.value = Number(dDeg.toFixed(1));
             this.snapshotCamera.camera.fov = hDeg!;
         }
         // 同步更新焦距显示（防抖避免触发二次计算）
@@ -1252,9 +1252,9 @@ class SnapshotView extends Container {
         const realFocal = (this.sensorWidthMm / (2 * Math.tan(hRadNow / 2)));
         const eqFocal = realFocal * 36 / this.sensorWidthMm;
         this.suppressFocalChange = true;
-        this.focalInput && (this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1)));
+        if (this.focalInput) this.focalInput.value = Number((this.unitMode === 'equivalent' ? eqFocal : realFocal).toFixed(1));
         this.suppressFocalChange = false;
-        this.sensorWidthInput && (this.sensorWidthInput.value = Number(this.sensorWidthMm.toFixed(2)));
+        if (this.sensorWidthInput) this.sensorWidthInput.value = Number(this.sensorWidthMm.toFixed(2));
         this.updateDerivedFovs();
         this.updateFrustumVisualization();
         if (this.scene.forceRender !== undefined) {

@@ -191,4 +191,4 @@ class SplatsTransformHandler implements TransformHandler {
     }
 }
 
-export { SplatsTransformHandler };
+export { SplatsTransformHandler };

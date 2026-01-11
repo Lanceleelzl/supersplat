@@ -9,18 +9,18 @@ import { version as appVersion } from '../package.json';
 const params = new URLSearchParams(window.location.search.slice(1));
 const enableDebugLog = params.has('debug');
 if (!enableDebugLog) {
-  console.log = () => {};
-  console.debug = () => {};
+    console.log = () => {};
+    console.debug = () => {};
 }
 
 // 过滤浏览器扩展的未处理 Promise 拒绝报错
 window.addEventListener('unhandledrejection', (event) => {
-  const reason: any = event.reason;
-  const msg = typeof reason === 'string' ? reason : (reason && reason.message);
-  if (typeof msg === 'string' && msg.includes('The message port closed before a response was received')) {
-    event.preventDefault();
-    console.debug('[silenced] extension message port closed before response');
-  }
+    const reason: any = event.reason;
+    const msg = typeof reason === 'string' ? reason : (reason && reason.message);
+    if (typeof msg === 'string' && msg.includes('The message port closed before a response was received')) {
+        event.preventDefault();
+        console.debug('[silenced] extension message port closed before response');
+    }
 });
 
 main();

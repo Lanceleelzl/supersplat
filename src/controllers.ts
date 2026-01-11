@@ -23,12 +23,12 @@ class PointerController {
             // 检查是否允许旋转操作
             const orbitData = { dx, dy };
             camera.scene.events.fire('camera.beforeOrbit', orbitData);
-            
+
             // 如果dx/dy被修改为0，则不执行旋转
             if (orbitData.dx === 0 && orbitData.dy === 0) {
                 return;
             }
-            
+
             const azim = camera.azim - orbitData.dx * camera.scene.config.controls.orbitSensitivity;
             const elev = camera.elevation - orbitData.dy * camera.scene.config.controls.orbitSensitivity;
             camera.setAzimElev(azim, elev);
@@ -66,7 +66,7 @@ class PointerController {
             if (!panData.allowed) {
                 return;
             }
-            
+
             // For panning to work at any zoom level, we use screen point to world projection
             // to work out how far we need to pan the pivotEntity in world space
             const c = camera.entity.camera;
@@ -88,13 +88,14 @@ class PointerController {
             if (!zoomData.allowed) {
                 return;
             }
-            
+
             camera.setDistance(camera.distance - (camera.distance * 0.999 + 0.001) * zoomData.amount * camera.scene.config.controls.zoomSensitivity, 2);
         };
 
         // mouse state
         let pressedButton = -1;  // no button pressed, otherwise 0, 1, or 2
         let x: number, y: number;
+        let isDragging = false;
 
         // touch state
         let touches: { id: number, x: number, y: number}[] = [];
@@ -284,6 +285,15 @@ class PointerController {
         //     }
         // };
 
+        const shouldIgnoreEvent = (event: Event) => {
+            return false;
+        };
+
+        // 检查点击是否在UI面板上
+        const isClickOnUI = (event: Event) => {
+            return false;
+        };
+
         // 单击：只有在非拖拽状态且未点击UI时才进行拾取选择
         const click = (event: globalThis.MouseEvent) => {
             // 检查是否应该忽略这个事件
@@ -433,6 +443,24 @@ class PointerController {
 
         let destroy: () => void = null;
 
+        const mousedown = (event: MouseEvent) => {
+            isDragging = false;
+        };
+
+        const mousemove = (event: MouseEvent) => {
+            if (event.buttons !== 0) {
+                isDragging = true;
+            }
+        };
+
+        const keydown = (event: KeyboardEvent) => {
+            // Placeholder for custom keydown logic
+        };
+
+        const keyup = (event: KeyboardEvent) => {
+            // Placeholder for custom keyup logic
+        };
+
         const wrap = (target: any, name: string, fn: any, options?: any) => {
             const callback = (event: any) => {
                 camera.scene.events.fire('camera.controller', name);
@@ -449,17 +477,13 @@ class PointerController {
         wrap(target, 'pointerup', pointerup);
         wrap(target, 'pointermove', pointermove);
         wrap(target, 'wheel', wheel, { passive: false });
-<<<<<<< HEAD
         // wrap(target, 'dblclick', dblclick); // 禁用双击事件，只使用单击选择
         wrap(target, 'mousedown', mousedown); // 添加鼠标按下事件监听
         wrap(target, 'mousemove', mousemove); // 添加鼠标移动事件监听
         wrap(target, 'click', click);
         wrap(document, 'keydown', keydown);
         wrap(document, 'keyup', keyup);
-=======
-        wrap(target, 'dblclick', dblclick);
         wrap(window, 'blur', clearAllKeys);
->>>>>>> upstream/main
 
         this.destroy = () => {
             destroy?.();

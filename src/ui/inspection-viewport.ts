@@ -1,8 +1,8 @@
 import { Container } from '@playcanvas/pcui';
 import { Entity, Quat } from 'playcanvas';
 
-import { Events } from '../events';
 import { ElementType } from '../element';
+import { Events } from '../events';
 import { Scene } from '../scene';
 
 /**
@@ -60,10 +60,12 @@ class InspectionViewport extends Container {
         this.dom.appendChild(this.overlay);
 
         // 覆盖层内拦截事件，防止穿透主场景
-        const intercept = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-        const optsWheel: AddEventListenerOptions = { capture: true, passive: false };
-        const opts: AddEventListenerOptions = { capture: true };
-        ['pointerdown','pointermove','pointerup','mousedown','mouseup','click','dblclick','contextmenu'].forEach(name => {
+        const intercept = (e: Event) => {
+            e.preventDefault(); e.stopPropagation();
+        };
+        const optsWheel = { capture: true, passive: false } as any;
+        const opts = { capture: true } as any;
+        ['pointerdown', 'pointermove', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'].forEach((name) => {
             this.overlay.addEventListener(name, intercept, opts);
         });
         this.overlay.addEventListener('wheel', intercept, optsWheel);

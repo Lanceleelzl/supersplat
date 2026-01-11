@@ -34,6 +34,20 @@ import { Serializer } from './serializer';
 import { Splat } from './splat';
 import { TweenValue } from './tween-value';
 
+const vec = new Vec3();
+const vecb = new Vec3();
+const va = new Vec3();
+const v4 = new Vec4();
+const m = new Mat4();
+const ray = new Ray();
+const plane = new Plane();
+const forwardVec = new Vec3();
+const cameraPosition = new Vec3();
+const mod = (n: number, m: number) => ((n % m) + m) % m;
+
+class Camera extends Element {
+    static debugPick = false;
+
     /**
      * Calculate the forward vector given azimuth and elevation angles.
      *
@@ -1152,4 +1166,3 @@ import { TweenValue } from './tween-value';
 }
 
 export { Camera };
-

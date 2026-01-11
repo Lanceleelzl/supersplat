@@ -314,7 +314,7 @@ class CoordinateLookupTool {
     }
 
     // 创建或获取 3D 球体图标实体（直径模式）
-    private async ensureMarkerEntity(): Promise<Entity> {
+    private ensureMarkerEntity(): Entity {
         if (this.markerEntity) return this.markerEntity;
         const entity = new Entity('coordinateMarker');
         // 主体材质：不受光照、不写深度、不测试深度；橙色发光
@@ -342,13 +342,13 @@ class CoordinateLookupTool {
         return entity;
     }
 
-    private async placeMarker(world: Vec3) {
+    private placeMarker(world: Vec3) {
         // 设置新位置
         this.markerWorld = world.clone?.() || new Vec3(world.x, world.y, world.z);
         // 预备两种模式的资源
         this.ensureMarkerDom();
         if (this.markerMode === 'diameter') {
-            await this.ensureMarkerEntity();
+            this.ensureMarkerEntity();
         }
         this.updateMarker();
     }

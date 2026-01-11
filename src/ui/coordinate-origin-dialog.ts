@@ -146,6 +146,10 @@ class CoordinateOriginDialog extends Container {
             }
         };
 
+        // callbacks wiring
+        let onCancel: () => void = () => {};
+        let onOK: () => void = () => {};
+
         // keyboard
         const keydown = (event: KeyboardEvent) => {
             switch (event.key) {
@@ -158,10 +162,6 @@ class CoordinateOriginDialog extends Container {
                     break;
             }
         };
-
-        // callbacks wiring
-        let onCancel: () => void = () => {};
-        let onOK: () => void = () => {};
 
         cancelButton.on('click', () => {
             this.hide();

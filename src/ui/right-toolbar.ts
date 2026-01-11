@@ -11,15 +11,15 @@ import cameraFrameSelectionSvg from './svg/camera-frame-selection.svg';
 import cameraResetSvg from './svg/camera-reset.svg';
 import centersSvg from './svg/centers.svg';
 import colorPanelSvg from './svg/color-panel.svg';
+import coordinateLookupSvg from './svg/CoordinateLookup.svg';
+import flyCameraSvg from './svg/fly-camera.svg';
 import frontviewSvg from './svg/frontview.svg';
 import leftviewSvg from './svg/leftview.svg';
-import rightviewSvg from './svg/rightview.svg';
-import flyCameraSvg from './svg/fly-camera.svg';
 import orbitCameraSvg from './svg/orbit-camera.svg';
+import rightviewSvg from './svg/rightview.svg';
 import ringsSvg from './svg/rings.svg';
 import showHideSplatsSvg from './svg/show-hide-splats.svg';
 import upviewSvg from './svg/upview.svg';
-import coordinateLookupSvg from './svg/CoordinateLookup.svg';
 import { Tooltips } from './tooltips';
 
 const createSvg = (svgString: string) => {

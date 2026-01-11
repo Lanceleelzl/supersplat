@@ -6,6 +6,7 @@ import { Events } from '../events';
 import { BottomToolbar } from './bottom-toolbar';
 import { ColorPanel } from './color-panel';
 import { ContextMenu } from './context-menu';
+import { CoordinateOriginDialog } from './coordinate-origin-dialog';
 import { ExportPopup } from './export-popup';
 import { ImageSettingsDialog } from './image-settings-dialog';
 import { InspectionExportPanel } from './inspection-export-panel';
@@ -18,7 +19,6 @@ import { Progress } from './progress';
 import { PropertiesPanel } from './properties-panel';
 import { PublishSettingsDialog } from './publish-settings-dialog';
 import { RightToolbar } from './right-toolbar';
-import { CoordinateOriginDialog } from './coordinate-origin-dialog';
 import { ScenePanel } from './scene-panel';
 import { ShortcutsPopup } from './shortcuts-popup';
 import { SnapshotView } from './snapshot-view';
@@ -212,7 +212,7 @@ class EditorUI {
         topContainer.append(publishSettingsDialog);
         topContainer.append(imageSettingsDialog);
         topContainer.append(videoSettingsDialog);
-        
+
         // 将坐标原点设置面板添加到body而不是topContainer，参考InspectionExportPanel，解决层级问题
         document.body.appendChild(coordinateOriginDialog.dom);
 
