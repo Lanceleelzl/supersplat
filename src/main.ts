@@ -82,35 +82,46 @@ const initShortcuts = (events: Events) => {
     // 初始化快捷键配置
     const shortcuts = new Shortcuts(events);
 
-    shortcuts.register(['Delete', 'Backspace'], { event: 'select.delete' });  // 删除选中项
-    shortcuts.register(['Escape'], { event: 'tool.deactivate' });  // 退出当前工具
-    shortcuts.register(['Tab'], { event: 'selection.next' });  // 切换到下一个选择
-    shortcuts.register(['1'], { event: 'tool.move', sticky: true });  // 移动工具
-    shortcuts.register(['2'], { event: 'tool.rotate', sticky: true });  // 旋转工具
-    shortcuts.register(['3'], { event: 'tool.scale', sticky: true });  // 缩放工具
-    shortcuts.register(['G', 'g'], { event: 'grid.toggleVisible' });  // 切换网格显示
-    shortcuts.register(['C', 'c'], { event: 'tool.toggleCoordSpace' });  // 切换坐标空间
-    shortcuts.register(['F', 'f'], { event: 'camera.focus' });  // 相机聚焦
-    shortcuts.register(['R', 'r'], { event: 'tool.rectSelection', sticky: true });  // 矩形选择
-    shortcuts.register(['P', 'p'], { event: 'tool.polygonSelection', sticky: true });  // 多边形选择
-    shortcuts.register(['L', 'l'], { event: 'tool.lassoSelection', sticky: true });  // 套索选择
-    shortcuts.register(['B', 'b'], { event: 'tool.brushSelection', sticky: true });  // 笔刷选择
-    shortcuts.register(['O', 'o'], { event: 'tool.floodSelection', sticky: true });  // 洪水选择工具
-    shortcuts.register(['E', 'e'], { event: 'tool.eyedropperSelection', sticky: true }); // 吸管工具
-    shortcuts.register(['A', 'a'], { event: 'select.all', ctrl: true });  // 全选
-    shortcuts.register(['A', 'a'], { event: 'select.none', shift: true });  // 取消选择
-    shortcuts.register(['I', 'i'], { event: 'select.invert', ctrl: true });  // 反选
-    shortcuts.register(['H', 'h'], { event: 'select.hide' });  // 隐藏选中项
-    shortcuts.register(['U', 'u'], { event: 'select.unhide' });  // 显示隐藏项
-    shortcuts.register(['['], { event: 'tool.brushSelection.smaller' });  // 缩小笔刷
-    shortcuts.register([']'], { event: 'tool.brushSelection.bigger' });  // 放大笔刷
-    shortcuts.register(['Z', 'z'], { event: 'edit.undo', ctrl: true, capture: true });  // 撤销
-    shortcuts.register(['Z', 'z'], { event: 'edit.redo', ctrl: true, shift: true, capture: true });  // 重做
-    shortcuts.register(['M', 'm'], { event: 'camera.toggleMode' });  // 切换相机模式
-    shortcuts.register(['D', 'd'], { event: 'dataPanel.toggle' });  // 切换数据面板
-    shortcuts.register([' '], { event: 'camera.toggleOverlay' });  // 切换覆盖层
+    shortcuts.register(['Delete', 'Backspace'], { event: 'select.delete' });
+    shortcuts.register(['Escape'], { event: 'tool.deactivate' });
+    shortcuts.register(['Tab'], { event: 'selection.next' });
+    shortcuts.register(['Digit1'], { event: 'tool.move' });
+    shortcuts.register(['Digit2'], { event: 'tool.rotate' });
+    shortcuts.register(['Digit3'], { event: 'tool.scale' });
+    shortcuts.register(['KeyG'], { event: 'grid.toggleVisible' });
+    shortcuts.register(['KeyC'], { event: 'tool.toggleCoordSpace' });
+    shortcuts.register(['KeyF'], { event: 'camera.focus' });
+    shortcuts.register(['KeyR'], { event: 'tool.rectSelection' });
+    shortcuts.register(['KeyP'], { event: 'tool.polygonSelection' });
+    shortcuts.register(['KeyL'], { event: 'tool.lassoSelection' });
+    shortcuts.register(['KeyB'], { event: 'tool.brushSelection' });
+    shortcuts.register(['KeyO'], { event: 'tool.floodSelection' });
+    shortcuts.register(['KeyE'], { event: 'tool.eyedropperSelection', alt: true });
+    shortcuts.register(['KeyA'], { event: 'select.all', alt: true });
+    shortcuts.register(['KeyA'], { event: 'select.none', alt: true, shift: true });
+    shortcuts.register(['KeyI'], { event: 'select.invert', ctrl: true });
+    shortcuts.register(['KeyH'], { event: 'select.hide' });
+    shortcuts.register(['KeyU'], { event: 'select.unhide' });
+    shortcuts.register(['BracketLeft'], { event: 'tool.brushSelection.smaller' });
+    shortcuts.register(['BracketRight'], { event: 'tool.brushSelection.bigger' });
+    shortcuts.register(['KeyZ'], { event: 'edit.undo', ctrl: true, capture: true });
+    shortcuts.register(['KeyZ'], { event: 'edit.redo', ctrl: true, shift: true, capture: true });
+    shortcuts.register(['KeyM'], { event: 'camera.toggleMode' });
+    shortcuts.register(['KeyV'], { event: 'camera.toggleControlMode' });
+    shortcuts.register(['Space'], { event: 'camera.toggleOverlay' });
+    shortcuts.register(['KeyD'], { event: 'dataPanel.toggle', alt: true });
 
-    // 方向键微调由移动工具在激活时自行监听并阻止默认行为
+    // Fly mode movement (held, ignore shift/ctrl so speed modifiers work)
+    shortcuts.register(['KeyW'], { event: 'camera.fly.forward', held: true, shift: false, ctrl: false });
+    shortcuts.register(['KeyS'], { event: 'camera.fly.backward', held: true, shift: false, ctrl: false });
+    shortcuts.register(['KeyA'], { event: 'camera.fly.left', held: true, shift: false, ctrl: false });
+    shortcuts.register(['KeyD'], { event: 'camera.fly.right', held: true, shift: false, ctrl: false });
+    shortcuts.register(['KeyQ'], { event: 'camera.fly.down', held: true, shift: false, ctrl: false });
+    shortcuts.register(['KeyE'], { event: 'camera.fly.up', held: true, shift: false, ctrl: false });
+
+    // Speed modifier keys (ignore other modifiers)
+    shortcuts.register(['ShiftLeft', 'ShiftRight'], { event: 'camera.modifier.shift', held: true, ctrl: false, alt: false });
+    shortcuts.register(['ControlLeft', 'ControlRight'], { event: 'camera.modifier.ctrl', held: true, shift: false, alt: false });
 
     return shortcuts;
 };

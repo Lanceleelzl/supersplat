@@ -34,46 +34,37 @@ import { Serializer } from './serializer';
 import { Splat } from './splat';
 import { TweenValue } from './tween-value';
 
-// 根据方位角和仰角计算前进向量
-const calcForwardVec = (result: Vec3, azim: number, elev: number) => {
-    const ex = elev * math.DEG_TO_RAD;
-    const ey = azim * math.DEG_TO_RAD;
-    const s1 = Math.sin(-ex);
-    const c1 = Math.cos(-ex);
-    const s2 = Math.sin(-ey);
-    const c2 = Math.cos(-ey);
-    result.set(-c1 * s2, s1, c1 * c2);
-};
+    /**
+     * Calculate the forward vector given azimuth and elevation angles.
+     *
+     * @param {Vec3} result - The Vec3 to store the result in.
+     * @param {number} azim - Azimuth angle in degrees.
+     * @param {number} elev - Elevation angle in degrees.
+     */
+    static calcForwardVec(result: Vec3, azim: number, elev: number) {
+        const ex = elev * math.DEG_TO_RAD;
+        const ey = azim * math.DEG_TO_RAD;
+        const s1 = Math.sin(-ex);
+        const c1 = Math.cos(-ex);
+        const s2 = Math.sin(-ey);
+        const c2 = Math.cos(-ey);
+        result.set(-c1 * s2, s1, c1 * c2);
+    }
 
-// 工作用全局变量
-const forwardVec = new Vec3();
-const cameraPosition = new Vec3();
-const plane = new Plane();
-const ray = new Ray();
-const vec = new Vec3();
-const vecb = new Vec3();
-const va = new Vec3();
-const m = new Mat4();
-const v4 = new Vec4();
-
-// 处理负数的模运算
-const mod = (n: number, m: number) => ((n % m) + m) % m;
-
-// 相机控制类，继承自Element基类
-class Camera extends Element {
-    static debugPick = true; // 启用拾取调试以诊断问题
-    controller: PointerController;  // 指针控制器
-    entity: Entity;                 // 相机实体
-    focalPointTween = new TweenValue({ x: 0, y: 0.5, z: 0 });  // 焦点补间动画
-    azimElevTween = new TweenValue({ azim: 30, elev: -15 });   // 方位角和仰角补间动画
-    distanceTween = new TweenValue({ distance: 1 });           // 距离补间动画
+    controller: PointerController;
+    entity: Entity;
+    focalPointTween = new TweenValue({ x: 0, y: 0.5, z: 0 });
+    azimElevTween = new TweenValue({ azim: 30, elev: -15 });
+    distanceTween = new TweenValue({ distance: 1 });
 
     minElev = -90;  // 最小仰角
     maxElev = 90;   // 最大仰角
 
     sceneRadius = 1;  // 场景半径
 
-    flySpeed = 5;     // 飞行速度
+    flySpeed = 1;
+
+    controlMode: 'orbit' | 'fly' = 'orbit';
 
     picker: Picker;   // 拾取器
 
@@ -484,7 +475,7 @@ class Camera extends Element {
         const azimElev = this.azimElevTween.value;
         const distance = this.distanceTween.value;
 
-        calcForwardVec(forwardVec, azimElev.azim, azimElev.elev);
+        Camera.calcForwardVec(forwardVec, azimElev.azim, azimElev.elev);
         cameraPosition.copy(forwardVec);
         cameraPosition.mulScalar(distance.distance * this.sceneRadius / this.fovFactor);
         cameraPosition.add(this.focalPointTween.value);
@@ -599,7 +590,7 @@ class Camera extends Element {
 
     getRay(screenX: number, screenY: number, ray: Ray) {
         const { entity, ortho, scene } = this;
-        const cameraPos = this.entity.getPosition();
+        const cameraPos = entity.getPosition();
 
         // create the pick ray in world space
         if (ortho) {

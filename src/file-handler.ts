@@ -7,15 +7,15 @@ import { AssetSource } from './loaders/asset-source';
 import { Scene } from './scene';
 import { DownloadWriter, FileStreamWriter } from './serialize/writer';
 import { Splat } from './splat';
-import { serializePly, serializePlyCompressed, SerializeSettings, serializeSplat, serializeViewer, ViewerExportSettings } from './splat-serialize';
+import { serializePly, serializePlyCompressed, SerializeSettings, serializeSog, serializeSplat, serializeViewer, SogSettings, ViewerExportSettings } from './splat-serialize';
 import { localize } from './ui/localization';
 
 // TypeScript编译器和VSCode能找到这个类型，但ESLint找不到
 type FilePickerAcceptType = unknown;
 
-type ExportType = 'ply' | 'splat' | 'viewer';
+type ExportType = 'ply' | 'splat' | 'sog' | 'viewer';
 
-type FileType = 'ply' | 'compressedPly' | 'splat' | 'htmlViewer' | 'packageViewer';
+type FileType = 'ply' | 'compressedPly' | 'splat' | 'sog' | 'htmlViewer' | 'packageViewer';
 
 // 场景导出选项接口
 interface SceneExportOptions {
@@ -26,8 +26,11 @@ interface SceneExportOptions {
     // PLY格式相关
     compressedPly?: boolean;                // 是否压缩PLY
 
-    // 查看器相关
-    viewerExportSettings?: ViewerExportSettings;  // 查看器导出设置
+    // sog
+    sogIterations?: number;
+
+    // viewer
+    viewerExportSettings?: ViewerExportSettings;
 }
 
 // 文件选择器支持的文件类型定义
@@ -154,14 +157,6 @@ const loadCameraPoses = async (file: ImportFile, events: Events) => {
     const json = await response.json();
 
     if (json.length > 0) {
-        // calculate the average position of the camera poses
-        const ave = new Vec3(0, 0, 0);
-        json.forEach((pose: any) => {
-            vec.set(pose.position[0], pose.position[1], pose.position[2]);
-            ave.add(vec);
-        });
-        ave.mulScalar(1 / json.length);
-
         // sort entries by trailing number if it exists
         const sorter = (a: any, b: any) => {
             const avalue = a.id ?? a.img_name?.match(/\d*$/)?.[0];
@@ -174,8 +169,8 @@ const loadCameraPoses = async (file: ImportFile, events: Events) => {
                 const p = new Vec3(pose.position);
                 const z = new Vec3(pose.rotation[0][2], pose.rotation[1][2], pose.rotation[2][2]);
 
-                const dot = vec.sub2(ave, p).dot(z);
-                vec.copy(z).mulScalar(dot).add(p);
+                // Use fixed offset along Z-axis direction instead of variable dot product
+                vec.copy(z).mulScalar(10).add(p);
 
                 events.fire('camera.addPose', {
                     name: pose.img_name ?? `${file.filename}_${i}`,
@@ -552,7 +547,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         }
     });
 
-    events.function('scene.export', async (exportType: 'ply' | 'splat' | 'viewer') => {
+    events.function('scene.export', async (exportType: ExportType) => {
         const splats = getSplats();
 
         const hasFilePicker = !!window.showSaveFilePicker;
@@ -565,9 +560,10 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             return;
         }
 
-        const fileType =
-            (exportType === 'viewer') ? (options.viewerExportSettings.type === 'zip' ? 'packageViewer' : 'htmlViewer') :
-                (exportType === 'ply') ? (options.compressedPly ? 'compressedPly' : 'ply') : 'splat';
+        const fileType: FileType =
+            (exportType === 'viewer') ? (options.viewerExportSettings!.type === 'zip' ? 'packageViewer' : 'htmlViewer') :
+                (exportType === 'ply') ? (options.compressedPly ? 'compressedPly' : 'ply') :
+                    (exportType === 'sog') ? 'sog' : 'splat';
 
         if (hasFilePicker) {
             try {
@@ -615,9 +611,19 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                     case 'splat':
                         await serializeSplat(splats, serializeSettings, writer);
                         break;
+                    case 'sog': {
+                        const sogSettings: SogSettings = {
+                            ...serializeSettings,
+                            minOpacity: 1 / 255,
+                            removeInvalid: true,
+                            iterations: options.sogIterations ?? 10
+                        };
+                        await serializeSog(splats, sogSettings, writer);
+                        break;
+                    }
                     case 'htmlViewer':
                     case 'packageViewer':
-                        await serializeViewer(splats, serializeSettings, viewerExportSettings, writer);
+                        await serializeViewer(splats, serializeSettings, viewerExportSettings!, writer);
                         break;
                 }
             } finally {
