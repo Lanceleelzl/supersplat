@@ -126,15 +126,11 @@ const main = async () => {
     // init localization
     await localizeInit();
 
-<<<<<<< HEAD
-    // 编辑器用户界面
-=======
     // initialize shortcuts
     const shortcutManager = new ShortcutManager(events);
     events.function('shortcutManager', () => shortcutManager);
 
     // editor ui
->>>>>>> v2.17.4
     const editorUI = new EditorUI(events);
 
     // 创建图形设备
