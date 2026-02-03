@@ -318,7 +318,7 @@ class PointerController {
                 if (camera.controlMode === 'fly') {
                     camera.scene.events.fire('camera.setControlMode', 'orbit');
                 }
-                camera.pickFocalPoint(event.offsetX, event.offsetY);
+                camera.pickFocalPoint(event.offsetX / target.clientWidth, event.offsetY / target.clientHeight);
             }
             // 重置拖拽状态
             isDragging = false;
