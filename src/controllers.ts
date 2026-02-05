@@ -135,11 +135,13 @@ class PointerController {
                 if (event.button === pressedButton) {
                     pressedButton = -1;
                     target.releasePointerCapture(event.pointerId);
+                    isDragging = false;
                 }
             } else {
                 touches = touches.filter(touch => touch.id !== event.pointerId);
                 if (touches.length === 0) {
                     target.releasePointerCapture(event.pointerId);
+                    isDragging = false;
                 }
             }
         };
@@ -318,7 +320,11 @@ class PointerController {
                 if (camera.controlMode === 'fly') {
                     camera.scene.events.fire('camera.setControlMode', 'orbit');
                 }
-                camera.pickFocalPoint(event.offsetX / target.clientWidth, event.offsetY / target.clientHeight);
+                const canvas = camera.scene.canvas;
+                const rect = canvas?.getBoundingClientRect?.() || target.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / rect.width;
+                const y = (event.clientY - rect.top) / rect.height;
+                camera.pickFocalPoint(x, y);
             }
             // 重置拖拽状态
             isDragging = false;
@@ -450,6 +456,8 @@ class PointerController {
         const mousemove = (event: MouseEvent) => {
             if (event.buttons !== 0) {
                 isDragging = true;
+            } else {
+                isDragging = false;
             }
         };
 

@@ -47,7 +47,7 @@ const cameraPosition = new Vec3();
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 class Camera extends Element {
-    static debugPick = false;
+    static debugPick = true;
 
     /**
      * Calculate the forward vector given azimuth and elevation angles.
@@ -598,17 +598,19 @@ class Camera extends Element {
     }
 
     getRay(screenX: number, screenY: number, ray: Ray) {
-        const { entity, ortho, scene } = this;
+        const { entity, ortho } = this;
         const cameraPos = entity.getPosition();
+        const x = screenX;
+        const y = screenY;
 
         // create the pick ray in world space
         if (ortho) {
-            entity.camera.screenToWorld(screenX, screenY, -1.0, vec);
-            entity.camera.screenToWorld(screenX, screenY, 1.0, vecb);
+            entity.camera.screenToWorld(x, y, -1.0, vec);
+            entity.camera.screenToWorld(x, y, 1.0, vecb);
             vecb.sub(vec).normalize();
             ray.set(vec, vecb);
         } else {
-            entity.camera.screenToWorld(screenX, screenY, 1.0, vec);
+            entity.camera.screenToWorld(x, y, 1.0, vec);
             vec.sub(cameraPos).normalize();
             ray.set(cameraPos, vec);
         }
@@ -621,8 +623,6 @@ class Camera extends Element {
         // Convert normalized to pixels for GLB logic
         const screenX = x * target.clientWidth;
         const screenY = y * target.clientHeight;
-        const sx = x * scene.targetSize.width;
-        const sy = y * scene.targetSize.height;
 
         // 获取射线用于拾取
         this.getRay(screenX, screenY, ray);
@@ -642,13 +642,10 @@ class Camera extends Element {
         // =============================
         try {
             const cam = this.entity.camera;
-            const dpr = window.devicePixelRatio || 1;
-            const scaledX = screenX * dpr;
-            const scaledY = screenY * dpr;
             const nearPoint = new Vec3();
             const farPoint = new Vec3();
-            cam.screenToWorld(scaledX, scaledY, cam.nearClip, nearPoint);
-            cam.screenToWorld(scaledX, scaledY, cam.farClip, farPoint);
+            cam.screenToWorld(screenX, screenY, cam.nearClip, nearPoint);
+            cam.screenToWorld(screenX, screenY, cam.farClip, farPoint);
             const physicsRayDir = farPoint.clone().sub(nearPoint).normalize();
             // Construct a physics ray using pc.Ray if available (avoid shadowing existing Ray import if types differ)
             // @ts-ignore
@@ -730,10 +727,6 @@ class Camera extends Element {
             const nearPoint = new Vec3();
             const farPoint = new Vec3();
 
-            // 统一使用渲染目标尺寸 (考虑 DPR) 的转换
-            // PlayCanvas 的 camera.screenToWorld 期望的是相对 canvas 的屏幕坐标（像素）
-            // 但我们有可能在高 DPI 下使用 clientWidth / clientHeight 逻辑，故确保一致性
-            // Use the same coordinate system as splat picking for consistency
             cam.screenToWorld(screenX, screenY, cam.nearClip, nearPoint);
             cam.screenToWorld(screenX, screenY, cam.farClip, farPoint);
 
@@ -945,8 +938,11 @@ class Camera extends Element {
                 if (!sp) continue; // 极端情况
                 // 只考虑在前方的
                 if (sp.z < 0 || sp.z > 1) continue;
-                const dx = screenX - sp.x;
-                const dy = screenY - sp.y;
+                // Convert normalized screen position to pixels
+                const spX = sp.x * target.clientWidth;
+                const spY = sp.y * target.clientHeight;
+                const dx = screenX - spX;
+                const dy = screenY - spY;
                 const d2 = dx * dx + dy * dy;
                 fallbackCandidates.push({ model, dist2: d2 });
 
@@ -1029,28 +1025,30 @@ class Camera extends Element {
         const screenY = y * this.scene.canvas.clientHeight;
 
         const result = await this.intersect(x, y);
-        if (result) {
-            const { scene } = this;
-            const splat = (result as any).splat;
-            // 仅在可选状态下才更改相机焦点，避免不可选时自动对齐
-            const preventFocus = !!(scene?.events?.invoke && scene.events.invoke('tool.preventCameraFocusOnPick'));
-            if (splat?.selectable && !preventFocus) {
-                this.setFocalPoint((result as any).position);
-                this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
-            }
-            scene.events.fire('camera.focalPointPicked', {
-                camera: this,
-                splat: (result as any).splat,
-                position: (result as any).position
-            });
-        } else if (result && (result as any).model) {
-            // GLB 模型选中：不改变相机焦点，仅触发选中事件
+        if (result && (result as any).model) {
             this.scene.events.fire('camera.focalPointPicked', {
                 camera: this,
                 model: (result as any).model,
                 position: (result as any).position
             });
-        } else {
+            return;
+        }
+        if (result && (result as any).splat) {
+            const { scene } = this;
+            const splat = (result as any).splat;
+            const preventFocus = !!(scene?.events?.invoke && scene.events.invoke('tool.preventCameraFocusOnPick'));
+            if (splat.selectable && !preventFocus) {
+                this.setFocalPoint((result as any).position);
+                this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
+            }
+            scene.events.fire('camera.focalPointPicked', {
+                camera: this,
+                splat,
+                position: (result as any).position
+            });
+            return;
+        }
+        {
             if (Camera.debugPick) {
                 console.log('没有拾取到任何模型');
             }

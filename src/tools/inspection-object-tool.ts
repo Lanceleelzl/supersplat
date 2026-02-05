@@ -75,7 +75,7 @@ class InspectionObjectTool {
                 if ((ev.buttons & 3) === 0) return;
                 const dx = Math.abs(ev.clientX - startX);
                 const dy = Math.abs(ev.clientY - startY);
-                if (dx > 4 || dy > 4) {
+                if (dx > 10 || dy > 10) {
                     if (!moved) {
                         moved = true;
                         this.events.fire('tool.dragging', true);
@@ -83,7 +83,7 @@ class InspectionObjectTool {
                 }
             };
 
-            const onUp = (ev: PointerEvent) => {
+            const onUp = async (ev: PointerEvent) => {
                 window.removeEventListener('pointermove', onMove, true);
                 window.removeEventListener('pointerup', onUp, true);
                 if (moved) {
@@ -105,10 +105,10 @@ class InspectionObjectTool {
                     return;
                 }
 
-                const rect = this.canvasContainerDom.getBoundingClientRect();
-                const x = ev.clientX - rect.left;
-                const y = ev.clientY - rect.top;
-                const hit = this.scene.camera.intersect(x, y) as any;
+                const canvasRect = this.scene.canvas.getBoundingClientRect();
+                const x = (ev.clientX - canvasRect.left) / canvasRect.width;
+                const y = (ev.clientY - canvasRect.top) / canvasRect.height;
+                const hit = await this.scene.camera.intersect(x, y) as any;
                 if (!hit || !hit.position) return;
                 const world = new Vec3(hit.position.x, hit.position.y, hit.position.z);
                 const groupId = this.currentGroupId;
@@ -211,6 +211,14 @@ class InspectionObjectTool {
                 } else {
                     this.startEditingVertex(this.editingId, -1);
                 }
+            } else if (toolName !== 'inspectionObjects') {
+                // Clear selection if switching to other tools
+                if (this.editingId) {
+                    this.setOverlayPointerEvents(true);
+                    this.editingId = null;
+                    this.editingVertexIndex = null;
+                    this.events.fire('inspectionObjects.clearSelection');
+                }
             }
         });
 
@@ -293,13 +301,22 @@ class InspectionObjectTool {
         events.on('inspectionObjects.active', (active: boolean) => {
             this.active = active;
             if (!active) {
-                if (this.editingId) {
-                    this.editingId = null;
-                    this.editingVertexIndex = null;
-                }
-                this.events.fire('inspectionObjects.clearSelection');
-                this.events.fire('tool.deactivate');
-                if (this.svg) this.svg.style.pointerEvents = 'none';
+                // Defer cleanup to check if we are switching to Move tool
+                setTimeout(() => {
+                    const currentTool = this.events.invoke('tool.active');
+                    if (currentTool === 'move') {
+                        // Do not clear selection if switching to move tool
+                        return;
+                    }
+
+                    if (this.editingId) {
+                        this.editingId = null;
+                        this.editingVertexIndex = null;
+                    }
+                    this.events.fire('inspectionObjects.clearSelection');
+                    this.events.fire('tool.deactivate');
+                    if (this.svg) this.svg.style.pointerEvents = 'none';
+                }, 0);
             }
         });
         events.on('inspectionObjects.groupSelected', (gid: string) => {
@@ -486,22 +503,30 @@ class InspectionObjectTool {
         }
 
         const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
+        const rect = this.canvasContainerDom.getBoundingClientRect();
+        const canvasRect = this.scene.canvas.getBoundingClientRect();
+        const offsetX = canvasRect.left - rect.left;
+        const offsetY = canvasRect.top - rect.top;
         const isOrtho = this.scene.camera.ortho;
-        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) {
+        if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || canvasRect.width <= 0 || canvasRect.height <= 0 || (!isOrtho && sp.z < 0)) {
             p.dom.style.display = 'none';
         } else {
             p.dom.style.display = 'block';
-            p.dom.style.left = `${sp.x}px`;
-            p.dom.style.top = `${sp.y}px`;
+            p.dom.style.left = `${offsetX + sp.x}px`;
+            p.dom.style.top = `${offsetY + sp.y}px`;
         }
     }
 
     private updateAllLineFaceSvgs() {
         if (!this.svg) return;
+        const rect = this.canvasContainerDom.getBoundingClientRect();
+        const canvasRect = this.scene.canvas.getBoundingClientRect();
+        const offsetX = canvasRect.left - rect.left;
+        const offsetY = canvasRect.top - rect.top;
         this.lineFaceObjects.forEach((obj) => {
             const pts = obj.points.map((p) => {
                 const sp = this.scene.camera.entity.camera.worldToScreen(p.world, new Vec3());
-                return `${sp.x},${sp.y}`;
+                return `${offsetX + sp.x},${offsetY + sp.y}`;
             }).join(' ');
             obj.svgEl.setAttribute('points', pts);
             const ns = this.svg!.namespaceURI;
@@ -554,8 +579,8 @@ class InspectionObjectTool {
                 }
 
                 const sp = this.scene.camera.entity.camera.worldToScreen(obj.points[i].world, new Vec3());
-                circ.setAttribute('cx', `${sp.x}`);
-                circ.setAttribute('cy', `${sp.y}`);
+                circ.setAttribute('cx', `${offsetX + sp.x}`);
+                circ.setAttribute('cy', `${offsetY + sp.y}`);
                 circ.setAttribute('visibility', 'visible');
             }
         });
@@ -691,6 +716,9 @@ class InspectionObjectTool {
     }
 
     private startEditingVertex(id: string, index: number) {
+        // Clear global selection to avoid conflict
+        this.events.fire('selection', null);
+
         // Check if selectable
         const obj = this.objects.get(id);
         if (obj && (obj as any).selectable === false) return;

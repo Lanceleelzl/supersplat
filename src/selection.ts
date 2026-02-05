@@ -101,7 +101,7 @@ const registerSelectionEvents = (events: Events, scene: Scene) => {
 
         // 拖拽过程中或刚刚结束拖拽时，不处理点击拾取，避免误清空选择
         const ignore = events.invoke('tool.shouldIgnoreClick');
-        if (ignore) {
+        if (ignore && !details?.splat && !details?.model) {
             return;
         }
 
