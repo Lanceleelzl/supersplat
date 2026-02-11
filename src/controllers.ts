@@ -318,6 +318,15 @@ class PointerController {
                 if (camera.controlMode === 'fly') {
                     camera.scene.events.fire('camera.setControlMode', 'orbit');
                 }
+                const inspectionHandled = camera.scene.events.invoke('inspectionObjects.pickAt', event.offsetX, event.offsetY) as boolean;
+                if (inspectionHandled) {
+                    isDragging = false;
+                    return;
+                }
+                const isInspectionEditing = camera.scene.events.invoke('inspectionObjects.isEditing') as boolean;
+                if (isInspectionEditing) {
+                    camera.scene.events.fire('inspectionObjects.clearSelection');
+                }
                 camera.pickFocalPoint(event.offsetX, event.offsetY);
             }
             // 重置拖拽状态

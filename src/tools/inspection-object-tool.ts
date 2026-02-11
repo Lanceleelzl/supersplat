@@ -691,7 +691,10 @@ class InspectionObjectTool {
     }
 
     private startEditingVertex(id: string, index: number) {
-        // Check if selectable
+        const selection = this.events.invoke('selection');
+        if (selection) {
+            this.events.fire('selection', null);
+        }
         const obj = this.objects.get(id);
         if (obj && (obj as any).selectable === false) return;
 
@@ -860,6 +863,61 @@ class InspectionObjectTool {
     // events wiring
     private wireUiEvents() {
         this.events.function('inspectionObjects.isEditing', () => !!this.editingId);
+        this.events.function('inspectionObjects.pickAt', (x: number, y: number) => {
+            const activeTool = this.events.invoke('tool.active');
+            if (activeTool !== 'move') return false;
+            if (this.isDragging) return false;
+
+            const threshold = Math.max(6, Math.min(24, this.markerSize * 0.6));
+            const threshold2 = threshold * threshold;
+            let bestId: string | null = null;
+            let bestIndex = -1;
+            let bestDist2 = threshold2;
+            const cam = this.scene.camera.entity.camera;
+            const isOrtho = this.scene.camera.ortho;
+
+            this.lineFaceObjects.forEach((lf) => {
+                if (lf.svgEl.style.display === 'none') return;
+                const parentObj = this.objects.get(lf.id);
+                if (parentObj && (parentObj as any).selectable === false) return;
+                for (let i = 0; i < lf.points.length; i++) {
+                    const sp = cam.worldToScreen(lf.points[i].world, new Vec3());
+                    if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) continue;
+                    const dx = sp.x - x;
+                    const dy = sp.y - y;
+                    const dist2 = dx * dx + dy * dy;
+                    if (dist2 <= bestDist2) {
+                        bestDist2 = dist2;
+                        bestId = lf.id;
+                        bestIndex = i;
+                    }
+                }
+            });
+
+            this.objects.forEach((o) => {
+                if (o.kind !== 'point' || (o as any).parentId) return;
+                if ((o as any).selectable === false) return;
+                if (o.dom?.dataset?.hidden === '1') return;
+                if (!o.world) return;
+                const sp = cam.worldToScreen(o.world, new Vec3());
+                if (!sp || !isFinite(sp.x) || !isFinite(sp.y) || (!isOrtho && sp.z < 0)) return;
+                const dx = sp.x - x;
+                const dy = sp.y - y;
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 <= bestDist2) {
+                    bestDist2 = dist2;
+                    bestId = o.id;
+                    bestIndex = -1;
+                }
+            });
+
+            if (bestId) {
+                this.startEditingVertex(bestId, bestIndex);
+                return true;
+            }
+
+            return false;
+        });
 
         this.events.on('camera.focalPointPicked', (details: any) => {
             const ignore = this.events.invoke('tool.justTransformed');
@@ -874,10 +932,6 @@ class InspectionObjectTool {
         });
 
         this.events.on('selection.changed', (selection: any) => {
-            const activeTool = this.events.invoke('tool.active');
-            if (activeTool === 'move') {
-                return;
-            }
             if (selection) {
                 this.editingId = null;
                 this.editingVertexIndex = null;
