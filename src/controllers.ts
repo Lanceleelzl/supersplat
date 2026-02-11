@@ -135,11 +135,13 @@ class PointerController {
                 if (event.button === pressedButton) {
                     pressedButton = -1;
                     target.releasePointerCapture(event.pointerId);
+                    isDragging = false;
                 }
             } else {
                 touches = touches.filter(touch => touch.id !== event.pointerId);
                 if (touches.length === 0) {
                     target.releasePointerCapture(event.pointerId);
+                    isDragging = false;
                 }
             }
         };
@@ -318,7 +320,12 @@ class PointerController {
                 if (camera.controlMode === 'fly') {
                     camera.scene.events.fire('camera.setControlMode', 'orbit');
                 }
-                const inspectionHandled = camera.scene.events.invoke('inspectionObjects.pickAt', event.offsetX, event.offsetY) as boolean;
+                const rect = target.getBoundingClientRect();
+                const pixelX = event.clientX - rect.left;
+                const pixelY = event.clientY - rect.top;
+                const x = pixelX / rect.width;
+                const y = pixelY / rect.height;
+                const inspectionHandled = camera.scene.events.invoke('inspectionObjects.pickAt', pixelX, pixelY) as boolean;
                 if (inspectionHandled) {
                     isDragging = false;
                     return;
@@ -327,7 +334,7 @@ class PointerController {
                 if (isInspectionEditing) {
                     camera.scene.events.fire('inspectionObjects.clearSelection');
                 }
-                camera.pickFocalPoint(event.offsetX, event.offsetY);
+                camera.pickFocalPoint(x, y);
             }
             // 重置拖拽状态
             isDragging = false;
@@ -459,6 +466,8 @@ class PointerController {
         const mousemove = (event: MouseEvent) => {
             if (event.buttons !== 0) {
                 isDragging = true;
+            } else {
+                isDragging = false;
             }
         };
 

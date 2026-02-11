@@ -17,7 +17,6 @@ import {
     BoundingBox,
     Entity,
     Mat4,
-    Picker,
     Plane,
     Ray,
     RenderTarget,
@@ -30,10 +29,12 @@ import {
 import { PointerController } from './controllers';
 import { Element, ElementType } from './element';
 import { GltfModel } from './gltf-model';
+import { Picker } from './picker';
 import { Serializer } from './serializer';
 import { Splat } from './splat';
 import { TweenValue } from './tween-value';
 
+// work globals
 const vec = new Vec3();
 const vecb = new Vec3();
 const va = new Vec3();
@@ -46,7 +47,7 @@ const cameraPosition = new Vec3();
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 class Camera extends Element {
-    static debugPick = false;
+    static debugPick = true;
 
     /**
      * Calculate the forward vector given azimuth and elevation angles.
@@ -82,10 +83,11 @@ class Camera extends Element {
 
     picker: Picker;   // 拾取器
 
-    workRenderTarget: RenderTarget;  // 工作渲染目标
+    renderTarget: RenderTarget;
+    workTarget: RenderTarget;
 
-    // 重写的目标尺寸
-    targetSize: { width: number, height: number } = null;
+    // overridden target size
+    targetSizeOverride: { width: number, height: number } = null;
 
     suppressFinalBlit = false;  // 抑制最终混合
 
@@ -315,12 +317,7 @@ class Camera extends Element {
         this.setDistance(controls.initialZoom, 0);
 
         // picker
-        const { width, height } = this.scene.targetSize;
-        this.picker = new Picker(this.scene.app, width, height);
-
-        // override buffer allocation to use our render target
-        this.picker.allocateRenderTarget = () => { };
-        this.picker.releaseRenderTarget = () => { };
+        this.picker = new Picker(this.scene);
 
         this.scene.events.on('scene.boundChanged', this.onBoundChanged, this);
 
@@ -389,8 +386,7 @@ class Camera extends Element {
         this.entity.camera.layers = this.entity.camera.layers.filter(layer => layer !== this.scene.shadowLayer.id);
         this.scene.cameraRoot.removeChild(this.entity);
 
-        // destroy doesn't exist on picker?
-        // this.picker.destroy();
+        this.picker.destroy();
         this.picker = null;
 
         this.scene.events.off('scene.boundChanged', this.onBoundChanged, this);
@@ -410,70 +406,66 @@ class Camera extends Element {
         serializer.pack(
             this.fov,
             this.tonemapping,
-            this.entity.camera.renderTarget?.width,
-            this.entity.camera.renderTarget?.height
+            this.renderTarget?.width,
+            this.renderTarget?.height
         );
     }
 
     // handle the viewer canvas resizing
     rebuildRenderTargets() {
-        const device = this.scene.graphicsDevice;
-        const { width, height } = this.targetSize ?? this.scene.targetSize;
-        const format = this.scene.events.invoke('camera.highPrecision') ? PIXELFORMAT_RGBA16F : PIXELFORMAT_RGBA8;
+        const { width, height } = this.targetSize;
+        const { renderTarget } = this;
 
-        const rt = this.entity.camera.renderTarget;
-        if (rt && rt.width === width && rt.height === height && rt.colorBuffer.format === format) {
+        // early out if size is unchanged
+        if (renderTarget && renderTarget.width === width && renderTarget.height === height) {
             return;
         }
 
-        // out with the old
-        if (rt) {
-            rt.destroyTextureBuffers();
-            rt.destroy();
+        if (!renderTarget) {
+            // first time - construct render targets
+            const { graphicsDevice } = this.scene;
 
-            this.workRenderTarget.destroy();
-            this.workRenderTarget = null;
+            const createTexture = (name: string, width: number, height: number, format: number) => {
+                return new Texture(graphicsDevice, {
+                    name,
+                    width,
+                    height,
+                    format,
+                    mipmaps: false,
+                    minFilter: FILTER_NEAREST,
+                    magFilter: FILTER_NEAREST,
+                    addressU: ADDRESS_CLAMP_TO_EDGE,
+                    addressV: ADDRESS_CLAMP_TO_EDGE
+                });
+            };
+
+            // create main render target
+            this.renderTarget = new RenderTarget({
+                colorBuffer: createTexture('cameraColor', width, height, PIXELFORMAT_RGBA16F),
+                depthBuffer: createTexture('cameraDepth', width, height, PIXELFORMAT_DEPTH),
+                flipY: false,
+                autoResolve: false
+            });
+
+            // create work buffer
+            this.workTarget = new RenderTarget({
+                colorBuffer: createTexture('workColor', width, height, PIXELFORMAT_RGBA8),
+                depth: false,
+                autoResolve: false
+            });
+
+            // set picker render targets
+            this.entity.camera.renderTarget = this.renderTarget;
+            this.picker.setRenderTargets(this.renderTarget, this.workTarget);
+        } else {
+            // resize existing render targets
+            const { workTarget } = this;
+
+            renderTarget.resize(width, height);
+            workTarget.resize(width, height);
         }
 
-        const createTexture = (name: string, width: number, height: number, format: number) => {
-            return new Texture(device, {
-                name,
-                width,
-                height,
-                format,
-                mipmaps: false,
-                minFilter: FILTER_NEAREST,
-                magFilter: FILTER_NEAREST,
-                addressU: ADDRESS_CLAMP_TO_EDGE,
-                addressV: ADDRESS_CLAMP_TO_EDGE
-            });
-        };
-
-        // in with the new
-        const colorBuffer = createTexture('cameraColor', width, height, format);
-        const depthBuffer = createTexture('cameraDepth', width, height, PIXELFORMAT_DEPTH);
-        const renderTarget = new RenderTarget({
-            colorBuffer,
-            depthBuffer,
-            flipY: false,
-            autoResolve: false
-        });
-        this.entity.camera.renderTarget = renderTarget;
         this.entity.camera.horizontalFov = width > height;
-
-        const workColorBuffer = createTexture('workColor', width, height, PIXELFORMAT_RGBA8);
-
-        // create pick mode render target (reuse color buffer)
-        this.workRenderTarget = new RenderTarget({
-            colorBuffer: workColorBuffer,
-            depth: false,
-            autoResolve: false
-        });
-
-        // set picker render target
-        // @ts-ignore
-        this.picker.renderTarget = this.workRenderTarget;
-
         this.scene.events.fire('camera.resize', { width, height });
     }
 
@@ -500,7 +492,10 @@ class Camera extends Element {
         this.fitClippingPlanes(this.entity.getLocalPosition(), this.entity.forward);
 
         const { camera } = this.entity;
-        camera.orthoHeight = this.distanceTween.value.distance * this.sceneRadius / this.fovFactor * (this.fov / 90) * (camera.horizontalFov ? this.scene.targetSize.height / this.scene.targetSize.width : 1);
+        const { targetSize } = this;
+
+        // update ortho height
+        camera.orthoHeight = this.distanceTween.value.distance * this.sceneRadius / this.fovFactor * (this.fov / 90) * (camera.horizontalFov ? targetSize.height / targetSize.width : 1);
         camera.camera._updateViewProjMat();
     }
 
@@ -554,7 +549,7 @@ class Camera extends Element {
 
     onPostRender() {
         const device = this.scene.graphicsDevice as WebglGraphicsDevice;
-        const renderTarget = this.entity.camera.renderTarget;
+        const { renderTarget } = this.entity.camera;
 
         // resolve msaa buffer
         if (renderTarget.samples > 1) {
@@ -596,36 +591,38 @@ class Camera extends Element {
     get fovFactor() {
         // we set the fov of the longer axis. here we get the fov of the other (smaller) axis so framing
         // doesn't cut off the scene.
-        const { width, height } = this.scene.targetSize;
+        const { width, height } = this.targetSize;
         const aspect = (width && height) ? this.entity.camera.horizontalFov ? height / width : width / height : 1;
         const fov = 2 * Math.atan(Math.tan(this.fov * math.DEG_TO_RAD * 0.5) * aspect);
         return Math.sin(fov * 0.5);
     }
 
     getRay(screenX: number, screenY: number, ray: Ray) {
-        const { entity, ortho, scene } = this;
+        const { entity, ortho } = this;
         const cameraPos = entity.getPosition();
+        const x = screenX;
+        const y = screenY;
 
         // create the pick ray in world space
         if (ortho) {
-            entity.camera.screenToWorld(screenX, screenY, -1.0, vec);
-            entity.camera.screenToWorld(screenX, screenY, 1.0, vecb);
+            entity.camera.screenToWorld(x, y, -1.0, vec);
+            entity.camera.screenToWorld(x, y, 1.0, vecb);
             vecb.sub(vec).normalize();
             ray.set(vec, vecb);
         } else {
-            entity.camera.screenToWorld(screenX, screenY, 1.0, vec);
+            entity.camera.screenToWorld(x, y, 1.0, vec);
             vec.sub(cameraPos).normalize();
             ray.set(cameraPos, vec);
         }
     }
 
-    // intersect the scene at the given screen coordinate
-    intersect(screenX: number, screenY: number) {
+    // intersect the scene at the given normalized screen coordinate (0-1 range) using depth picking
+    async intersect(x: number, y: number) {
         const { scene } = this;
-
         const target = scene.canvas;
-        const sx = screenX / target.clientWidth * scene.targetSize.width;
-        const sy = screenY / target.clientHeight * scene.targetSize.height;
+        // Convert normalized to pixels for GLB logic
+        const screenX = x * target.clientWidth;
+        const screenY = y * target.clientHeight;
 
         // 获取射线用于拾取
         this.getRay(screenX, screenY, ray);
@@ -645,13 +642,10 @@ class Camera extends Element {
         // =============================
         try {
             const cam = this.entity.camera;
-            const dpr = window.devicePixelRatio || 1;
-            const scaledX = screenX * dpr;
-            const scaledY = screenY * dpr;
             const nearPoint = new Vec3();
             const farPoint = new Vec3();
-            cam.screenToWorld(scaledX, scaledY, cam.nearClip, nearPoint);
-            cam.screenToWorld(scaledX, scaledY, cam.farClip, farPoint);
+            cam.screenToWorld(screenX, screenY, cam.nearClip, nearPoint);
+            cam.screenToWorld(screenX, screenY, cam.farClip, farPoint);
             const physicsRayDir = farPoint.clone().sub(nearPoint).normalize();
             // Construct a physics ray using pc.Ray if available (avoid shadowing existing Ray import if types differ)
             // @ts-ignore
@@ -733,10 +727,6 @@ class Camera extends Element {
             const nearPoint = new Vec3();
             const farPoint = new Vec3();
 
-            // 统一使用渲染目标尺寸 (考虑 DPR) 的转换
-            // PlayCanvas 的 camera.screenToWorld 期望的是相对 canvas 的屏幕坐标（像素）
-            // 但我们有可能在高 DPI 下使用 clientWidth / clientHeight 逻辑，故确保一致性
-            // Use the same coordinate system as splat picking for consistency
             cam.screenToWorld(screenX, screenY, cam.nearClip, nearPoint);
             cam.screenToWorld(screenX, screenY, cam.farClip, farPoint);
 
@@ -948,8 +938,11 @@ class Camera extends Element {
                 if (!sp) continue; // 极端情况
                 // 只考虑在前方的
                 if (sp.z < 0 || sp.z > 1) continue;
-                const dx = screenX - sp.x;
-                const dy = screenY - sp.y;
+                // Convert normalized screen position to pixels
+                const spX = sp.x * target.clientWidth;
+                const spY = sp.y * target.clientHeight;
+                const dx = screenX - spX;
+                const dy = screenY - spY;
                 const d2 = dx * dx + dy * dy;
                 fallbackCandidates.push({ model, dist2: d2 });
 
@@ -981,31 +974,19 @@ class Camera extends Element {
         // If no GLB model was picked, continue with splat picking
         const splats = scene.getElementsByType(ElementType.splat);
 
-        let closestD = 0;
-        const closestP = new Vec3();
-        let closestSplat = null;
+        let closestDepth = Infinity;
+        let closestSplat: Splat | null = null;
 
+        // Find the splat with the smallest depth at this screen position
         for (let i = 0; i < splats.length; ++i) {
             const splat = splats[i] as Splat;
 
-            this.pickPrep(splat, 'set');
-            const pickId = this.pick(sx, sy);
+            this.picker.prepareDepth(splat, this.entity);
+            const normalizedDepth = await this.picker.readDepth(x, y);
 
-            if (pickId !== -1) {
-                splat.calcSplatWorldPosition(pickId, vec);
-
-                // create a plane at the world position facing perpendicular to the camera
-                plane.setFromPointNormal(vec, this.entity.forward);
-
-                // find intersection
-                if (plane.intersectsRay(ray, vec)) {
-                    const distance = vecb.sub2(vec, ray.origin).length();
-                    if (!closestSplat || distance < closestD) {
-                        closestD = distance;
-                        closestP.copy(vec);
-                        closestSplat = splat;
-                    }
-                }
+            if (normalizedDepth !== null && normalizedDepth < closestDepth) {
+                closestDepth = normalizedDepth;
+                closestSplat = splat;
             }
         }
 
@@ -1017,38 +998,57 @@ class Camera extends Element {
             console.log('高斯模型拾取成功:', closestSplat.filename);
         }
 
+        // Convert normalized depth to linear depth
+        const linearDepth = closestDepth * (this.far - this.near) + this.near;
+
+        // Convert normalized coordinates to screen pixels for getRay
+        // const screenX = x * scene.canvas.clientWidth;
+        // const screenY = y * scene.canvas.clientHeight;
+
+        // Calculate world position from ray and depth
+        this.getRay(screenX, screenY, ray);
+        const t = linearDepth / ray.direction.dot(this.entity.forward);
+        const position = new Vec3();
+        position.copy(ray.origin).add(vec.copy(ray.direction).mulScalar(t));
+
         return {
             splat: closestSplat,
-            position: closestP,
-            distance: closestD
+            position: position,
+            distance: t
         };
     }
 
-    // intersect the scene at the screen location and focus the camera on this location
-    pickFocalPoint(screenX: number, screenY: number) {
-        const result = this.intersect(screenX, screenY);
-        if (result && (result as any).splat) {
-            const { scene } = this;
-            const splat = (result as any).splat;
-            // 仅在可选状态下才更改相机焦点，避免不可选时自动对齐
-            const preventFocus = !!(scene?.events?.invoke && scene.events.invoke('tool.preventCameraFocusOnPick'));
-            if (splat?.selectable && !preventFocus) {
-                this.setFocalPoint((result as any).position);
-                this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
-            }
-            scene.events.fire('camera.focalPointPicked', {
-                camera: this,
-                splat: (result as any).splat,
-                position: (result as any).position
-            });
-        } else if (result && (result as any).model) {
-            // GLB 模型选中：不改变相机焦点，仅触发选中事件
+    // intersect the scene at the normalized screen location (0-1 range) and focus the camera on this location
+    async pickFocalPoint(x: number, y: number) {
+        // Convert to pixels for fallback ray
+        const screenX = x * this.scene.canvas.clientWidth;
+        const screenY = y * this.scene.canvas.clientHeight;
+
+        const result = await this.intersect(x, y);
+        if (result && (result as any).model) {
             this.scene.events.fire('camera.focalPointPicked', {
                 camera: this,
                 model: (result as any).model,
                 position: (result as any).position
             });
-        } else {
+            return;
+        }
+        if (result && (result as any).splat) {
+            const { scene } = this;
+            const splat = (result as any).splat;
+            const preventFocus = !!(scene?.events?.invoke && scene.events.invoke('tool.preventCameraFocusOnPick'));
+            if (splat.selectable && !preventFocus) {
+                this.setFocalPoint((result as any).position);
+                this.setDistance((result as any).distance / this.sceneRadius * this.fovFactor);
+            }
+            scene.events.fire('camera.focalPointPicked', {
+                camera: this,
+                splat,
+                position: (result as any).position
+            });
+            return;
+        }
+        {
             if (Camera.debugPick) {
                 console.log('没有拾取到任何模型');
             }
@@ -1070,58 +1070,16 @@ class Camera extends Element {
     // pick mode
 
     // render picker contents
-    pickPrep(splat: Splat, op: 'add'|'remove'|'set') {
-        const { width, height } = this.scene.targetSize;
-        const worldLayer = this.scene.app.scene.layers.getLayerByName('World');
-
-        const device = this.scene.graphicsDevice;
-        const events = this.scene.events;
-        const alpha = events.invoke('camera.mode') === 'rings' ? 0.0 : 0.2;
-
-        // hide non-selected elements
-        const splats = this.scene.getElementsByType(ElementType.splat);
-        splats.forEach((s: Splat) => {
-            s.entity.enabled = s === splat;
-        });
-
-        device.scope.resolve('pickerAlpha').setValue(alpha);
-        device.scope.resolve('pickMode').setValue(['add', 'remove', 'set'].indexOf(op));
-        this.picker.resize(width, height);
-        this.picker.prepare(this.entity.camera, this.scene.app.scene, [worldLayer]);
-
-        // re-enable all splats
-        splats.forEach((splat: Splat) => {
-            splat.entity.enabled = true;
-        });
+    pickPrep(splat: Splat, mode: 'add' | 'remove' | 'set') {
+        this.picker.prepareId(splat, mode);
     }
 
     pick(x: number, y: number) {
-        return this.pickRect(x, y, 1, 1)[0];
+        return this.picker.readId(x, y);
     }
 
     pickRect(x: number, y: number, width: number, height: number) {
-        const device = this.scene.graphicsDevice as WebglGraphicsDevice;
-        const pixels = new Uint8Array(width * height * 4);
-
-        // read pixels
-        // @ts-ignore
-        device.setRenderTarget(this.picker.renderTarget);
-        device.updateBegin();
-        // @ts-ignore
-        device.readPixels(x, this.picker.renderTarget.height - y - height, width, height, pixels);
-        device.updateEnd();
-
-        const result: number[] = [];
-        for (let i = 0; i < width * height; i++) {
-            result.push(
-                pixels[i * 4] |
-                (pixels[i * 4 + 1] << 8) |
-                (pixels[i * 4 + 2] << 16) |
-                (pixels[i * 4 + 3] << 24)
-            );
-        }
-
-        return result;
+        return this.picker.readIds(x, y, width, height);
     }
 
     docSerialize() {
@@ -1148,20 +1106,24 @@ class Camera extends Element {
     // offscreen render mode
 
     startOffscreenMode(width: number, height: number) {
-        this.targetSize = { width, height };
+        this.targetSizeOverride = { width, height };
         this.suppressFinalBlit = true;
     }
 
     endOffscreenMode() {
-        this.targetSize = null;
+        this.targetSizeOverride = null;
         this.suppressFinalBlit = false;
     }
 
     // Pick GLB models without focusing camera (for selection only)
     pickModel(screenX: number, screenY: number) {
         // Deprecated: 现在统一使用 pickFocalPoint 完成 GLB + splat 拾取
+        const target = this.scene.canvas;
+        this.pickFocalPoint(screenX / target.clientWidth, screenY / target.clientHeight);
+    }
 
-        this.pickFocalPoint(screenX, screenY);
+    get targetSize() {
+        return this.targetSizeOverride ?? this.scene.targetSize;
     }
 }
 
